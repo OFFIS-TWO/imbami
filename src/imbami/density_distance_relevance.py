@@ -7,7 +7,7 @@ class DensityDistanceRelevance(BaseRelevanceFunction):
     """
     def __init__(self):
         """
-        Initializes DensityRatioRelevance.
+        Initializes DensityDistanceRelevance.
         Inherits from BaseRelevanceFunction. No arguments are required.
         """
         super().__init__()
