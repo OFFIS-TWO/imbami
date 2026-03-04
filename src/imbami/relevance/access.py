@@ -11,7 +11,7 @@ from ..utils.validation import extract_explicit_parameters
 
 
 
-def get_relevance_function(
+def relevance_function_factory(
     relevance_type: Literal["density_distance", "density_ratio", "histogram", "interpolation", "kde", "lds"],
     **kwargs
 ) -> RelevanceFunctionBase:
