@@ -1,20 +1,64 @@
-from imbami.utils.base_mitigation_method import BaseMitigationMethod
+from .base_mitigation_method import EmpiricalDomainMitigationMethodBase
 import pandas as pd
 import numpy as np
+import logging
 
-class crbSMOGN(BaseMitigationMethod):
+class crbSMOGN(EmpiricalDomainMitigationMethodBase):
+    """
+    crbSMOGN: Continuous ratio-based Synthetic Oversampling for Regression.
+
+    Performs oversampling and optional undersampling based on sample relevance,
+    controlling which samples are replicated, retained, or dropped.
+
+    Attributes
+    ----------
+    data : pd.DataFrame
+        The dataset to be sampled.
+    target_column : str
+        Name of the target variable.
+    relevance_values : pd.Series
+        Relevance values for each sample, in [0, 1].
+    binned_data : np.ndarray
+        Dataset discretized for similarity calculations.
+    sample_treatment : pd.Series
+        Indicates for each sample whether it is kept (1), dropped (0), or oversampled (>1).
+    oversample_indices : np.ndarray
+        Indices of samples selected for oversampling.
+    num_oversampled_samples : int
+        Number of samples added via oversampling.
+    num_gaussian_samples : int
+        Number of samples generated using Gaussian noise.
+    num_knn_samples : int
+        Number of samples generated using nearest-neighbor interpolation.
+    num_dropped_samples : int
+        Number of samples removed via undersampling.
+    min_acceptable_relevance : float
+        Minimum relevance threshold for retaining samples.
+    max_acceptable_relevance : float
+        Maximum relevance threshold for retaining samples.
+    allowed_bin_deviation : int
+        Maximum deviation in binning for similarity calculations.
+    noise_factor : float
+        Multiplier applied to Gaussian noise.
+    ignore_categorical_similarity : bool
+        Whether to ignore categorical features when computing similarity.
+    num_bins : int
+        Number of bins used for discretizing numeric columns.
+    """
     def __init__(self,
                 data: pd.DataFrame,
                 target_column: str,
                 relevance_values: pd.Series):
-        '''
-        data : pd.Dataframe
+        """
+        Parameters
+        ----------
+        data : pd.DataFrame
             Dataframe containing the data to be sampled.
         target_column : str
             Name of the target variable.
         relevance_values : pd.Series
-            Series containing the respective relevance values to the samples/rows in data.
-        '''
+            Series containing the respective relevance values for each row in `data`.
+        """
         super().__init__(data, target_column, relevance_values)
         
     def run_sampling(self,
@@ -26,37 +70,29 @@ class crbSMOGN(BaseMitigationMethod):
                     ignore_categorical_similarity: bool = False,
                     enable_undersampling: bool = True) -> pd.DataFrame:
         """
-        Applies crbSMOGN to the given dataset,
-        performing both oversampling and undersampling to handle imbalanced regression tasks.
+        Applies crbSMOGN to the given dataset, performing oversampling and optional undersampling.
 
-        Parameters:
-        ----------        
+        Parameters
+        ----------
         min_acceptable_relevance : float, optional
-            The minimum acceptable relevance for a sample to be retained without changes. Default is 1.0.
-        
+            Minimum relevance to retain a sample as-is. Default 1.0.
         max_acceptable_relevance : float, optional
-            The maximum acceptable relevance for a sample to be retained without changes. Default is 1.0.
-        
+            Maximum relevance to retain a sample as-is. Default 1.0.
         num_bins : int, optional
-            The number of bins to use for discretizing numeric columns. Default is 10.
-        
+            Number of bins for discretizing numeric features. Default 10.
         allowed_bin_deviation : int, optional
-            The maximum allowed deviation in binning to consider samples similar. Default is 1.
-        
+            Maximum deviation in binning for similarity. Default 1.
         noise_factor : float, optional
-            The multiplier applied to the standard deviations when adding Gaussian noise to numeric columns. Default is 0.01.
-        
+            Gaussian noise factor for numeric features. Default 0.01.
         ignore_categorical_similarity : bool, optional
-            If True, categorical features are ignored when calculating similarity between samples. Default is False.
-        
+            If True, ignore categorical features for similarity. Default False.
         enable_undersampling : bool, optional
-            If True, undersampling is performed on the dataset. Default is True.
+            If True, remove low-relevance samples. Default True.
 
-        Returns:
+        Returns
         -------
-        new_dataset : pd.DataFrame
-            The new dataset with the synthetic samples added and undersampling applied (if enabled).
- 
+        pd.DataFrame
+            New dataset with oversampling and optional undersampling applied.
         Notes:
         -----
             - num_gaussian_samples: int, the number of samples generated using Gaussian noise.
@@ -71,13 +107,13 @@ class crbSMOGN(BaseMitigationMethod):
         self.num_bins = num_bins
 
         # Discretize the dataset for similarity calculations
-        self.binned_data = self.discretize_dataset(
+        self.binned_data = self._discretize_dataset(
             self.data, self.num_bins, self.numeric_columns, self.categorical_columns, self.ignore_categorical_similarity).to_numpy()
 
         # Decide which samples to retain, oversample, or undersample
         self.sample_treatment = pd.Series(index=self.data.index, dtype=object)
         self.sample_treatment = self.relevance_values.apply(
-            lambda relv: self.check_treatment(relv))
+            lambda relv: self._check_treatment(relv))
 
         # Identify samples that require oversampling
         self.oversample_indices = self.data.index.get_indexer(self.sample_treatment[self.sample_treatment > 1].index)
@@ -94,8 +130,9 @@ class crbSMOGN(BaseMitigationMethod):
             num_replications = int(self.sample_treatment.iloc[idx]) - 1  # Adjust for existing sample
 
             # Generate synthetic samples using interpolation and Gaussian noise
-            new_samples, gaussian_count, knn_count = self.oversample(reference_sample_index= idx,
+            new_samples, gaussian_count, knn_count = self._oversample(reference_sample_index= int(idx),
                                                                 num_replications=num_replications)
+
 
             # Store the new samples
             oversampled_data[self.num_oversampled_samples:self.num_oversampled_samples + num_replications, :] = new_samples
@@ -120,7 +157,7 @@ class crbSMOGN(BaseMitigationMethod):
 
 
 
-    def check_treatment(self, relevance: float) -> int:
+    def _check_treatment(self, relevance: float) -> int:
         """
         Determine the sampling treatment for a sample based on its relevance.
 
@@ -153,10 +190,28 @@ class crbSMOGN(BaseMitigationMethod):
         
 
 
-    def oversample(self, reference_sample_index: int, 
+    def _oversample(self, reference_sample_index: int, 
                     num_replications: int) -> tuple[np.ndarray, int, int]:
+        """
+        Generate synthetic samples based on a reference sample using interpolation or Gaussian noise.
+
+        Parameters
+        ----------
+        reference_sample_index : int
+            Index of the reference sample in the dataset.
+        num_replications : int
+            Number of replications to be created of the sample.
+
+        Returns
+        -------
+        Tuple[np.ndarray, bool]
+            new_sample : np.ndarray
+                The generated synthetic samples.
+            interpolated : bool
+                True if generated by interpolation, False if generated by Gaussian noise.
+        """
         # get similar samples indice (rows) based on the discretized data
-        similar_rows = self.get_similar_samples(
+        similar_rows = self._get_similar_samples(
                 index = reference_sample_index, 
                 binned_data = self.binned_data, 
                 numerical_mask =self.numerical_mask, 
@@ -170,7 +225,7 @@ class crbSMOGN(BaseMitigationMethod):
         # check if enough similar samples where found. If yes, sort them by distance. If not, use all for oversampling
         if similar_samples.shape[0] > num_replications:
             num_gaussian_samples = 0
-            distances = self.heom_distance(x=self.data_numpy[reference_sample_index],
+            distances = self._heom_distance(x=self.data_numpy[reference_sample_index],
                                 y=similar_samples,
                                 feature_ranges= self.feature_ranges,
                                 categorical_mask=self.categorical_mask,
@@ -188,14 +243,14 @@ class crbSMOGN(BaseMitigationMethod):
         replication_counter = 0
 
         for neighbor_sample in nearest_neighbors:
-            new_samples[replication_counter, :] = self.interpolate_sample(x=self.data_numpy[reference_sample_index],
+            new_samples[replication_counter, :] = self._interpolate_sample(x=self.data_numpy[reference_sample_index],
                                                                     y=neighbor_sample,
                                                                     feature_ranges= self.feature_ranges,
                                                                     categorical_mask= self.categorical_mask,
                                                                     numerical_mask=self.numerical_mask)
             replication_counter += 1
 
-        new_samples[replication_counter:, :] = self.add_gaussian_noise(x=self.data_numpy[reference_sample_index],
+        new_samples[replication_counter:, :] = self._add_gaussian_noise(x=self.data_numpy[reference_sample_index],
                                                                 standard_deviations= self.standard_deviations,
                                                                 noise_factor= self.noise_factor,
                                                                 n_samples= num_gaussian_samples,
@@ -206,3 +261,73 @@ class crbSMOGN(BaseMitigationMethod):
         replication_counter += num_gaussian_samples
 
         return new_samples, num_gaussian_samples, num_knn_samples
+
+
+def apply_crbsmogn(data: pd.DataFrame,
+                   target_column: str,
+                   relevance_values: pd.Series,
+                   enable_undersampling: bool = True,
+                   min_acceptable_relevance: float = 1.0,
+                   max_acceptable_relevance: float = 1.0,
+                   num_bins: int = 10,
+                   allowed_bin_deviation: int = 1,
+                   noise_factor: float = 0.01,
+                   ignore_categorical_similarity: bool = False
+                   ) -> pd.DataFrame:
+    """
+    Apply the crbSMOGN sampling technique to balance an imbalanced regression dataset.
+
+    This function creates a new dataset by generating synthetic samples for minority
+    cases using interpolation and Gaussian noise, and optionally removing majority
+    cases through undersampling based on ratio-based relevance thresholds.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The input dataset to be balanced.
+    target_column : str
+        Name of the target variable column.
+    relevance_values : pd.Series
+        Relevance scores for each sample in the dataset, ranging from 0 to 1.
+        Samples with relevance outside the [min_acceptable_relevance, max_acceptable_relevance]
+        range will be considered for oversampling or undersampling.
+    enable_undersampling : bool, optional
+        If True, applies undersampling to remove low-relevance samples. Default is True.
+    min_acceptable_relevance : float, optional
+        Minimum relevance threshold for retaining samples as-is. Default is 1.0.
+    max_acceptable_relevance : float, optional
+        Maximum relevance threshold for retaining samples as-is. Default is 1.0.
+    num_bins : int, optional
+        Number of bins used for discretizing numeric features during similarity calculations. Default is 10.
+    allowed_bin_deviation : int, optional
+        Maximum bin difference allowed for considering two samples similar. Default is 1.
+    noise_factor : float, optional
+        Factor controlling the magnitude of Gaussian noise added to numeric features. Default is 0.01.
+    ignore_categorical_similarity : bool, optional
+        If True, ignores categorical feature differences when finding similar samples. Default is False.
+
+    Returns
+    -------
+    pd.DataFrame
+        A new balanced dataset with synthetic samples added and/or majority samples removed.
+
+    Notes
+    -----
+    - The function internally uses the crbSMOGN class to perform the actual sampling.
+    - Synthetic samples are generated either through interpolation with nearest neighbors
+      or by adding Gaussian noise to existing samples.
+    - The sampling process is controlled by the relevance thresholds provided.
+    """
+    logging.debug('Begin crbSMOGN...')
+    sampler = crbSMOGN(data=data,
+                      target_column=target_column,
+                      relevance_values=relevance_values)
+    new_data = sampler.run_sampling(min_acceptable_relevance=min_acceptable_relevance,
+                                   max_acceptable_relevance=max_acceptable_relevance,
+                                   num_bins=num_bins,
+                                   allowed_bin_deviation=allowed_bin_deviation,
+                                   noise_factor=noise_factor,
+                                   ignore_categorical_similarity=ignore_categorical_similarity,
+                                   enable_undersampling=enable_undersampling)
+    logging.debug('Finished crbSMOGN...')
+    return new_data

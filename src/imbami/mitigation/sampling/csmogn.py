@@ -1,20 +1,47 @@
-from imbami.utils.base_mitigation_method import BaseMitigationMethod
+from .base_mitigation_method import EmpiricalDomainMitigationMethodBase
 import pandas as pd
 import numpy as np
+import logging
 
-class cSMOGN(BaseMitigationMethod):
+class cSMOGN(EmpiricalDomainMitigationMethodBase):
+    """
+    cSMOGN: Continuous Synthetic Minority Over-sampling for Regression.
+
+    This object performs both oversampling and undersampling on imbalanced regression datasets.
+
+    Attributes
+    ----------
+    data : pd.DataFrame
+        The dataset to be sampled.
+    target_column : str
+        Name of the target variable.
+    relevance_values : pd.Series
+        Relevance values for each sample, in [0, 1].
+    binned_data : np.ndarray
+        Dataset discretized for similarity calculations.
+    num_gaussian_samples : int
+        Count of samples generated with Gaussian noise.
+    num_interpolated_samples : int
+        Count of samples generated via interpolation.
+    num_oversampled_samples : int
+        Total number of samples oversampled.
+    num_undersampled_samples : int
+        Total number of samples undersampled.
+    """
     def __init__(self,
                 data: pd.DataFrame,
                 target_column: str,
                 relevance_values: pd.Series):
-        '''
-        data : pd.Dataframe
+        """
+        Parameters
+        ----------
+        data : pd.DataFrame
             Dataframe containing the data to be sampled.
         target_column : str
             Name of the target variable.
         relevance_values : pd.Series
-            Series containing the respective relevance values to the samples/rows in data.
-        '''
+            Series containing the respective relevance values for each row in `data`.
+        """
         super().__init__(data, target_column, relevance_values)
         if not ((relevance_values >= 0) & (relevance_values <= 1)).all():
             out_of_bounds = relevance_values[(relevance_values < 0) | (relevance_values > 1)]
@@ -30,41 +57,31 @@ class cSMOGN(BaseMitigationMethod):
                     ignore_categorical_similarity: bool = False,
                     enable_undersampling: bool = True) -> pd.DataFrame:
         """
-        Applies cSMOGN to the given dataset,
-        performing both oversampling and undersampling to handle imbalanced regression tasks.
+        Apply cSMOGN to the dataset, performing oversampling and optional undersampling.
 
-        Parameters:
-        ----------        
+        Parameters
+        ----------
         oversample_rate : float, optional
-            Rate with which to oversample the dataset. It defines the number of samples to be created. 
-            For example, if the rate is 0.5 and the dataset contains 100 samples, 50 samples will be created. Default is 0.5.
-        
+            Fraction of dataset size to generate via oversampling. Default is 0.5.
         undersample_rate : float, optional
-            Rate with which to oversample the dataset. It defines the number of samples to be dropped.
-            For example, if the rate is 0.5 and the dataset contains 100 samples, 50 samples will be dropped. Default is 0.5.
-        
+            Fraction of dataset size to remove via undersampling. Default is 0.5.
         knns : int, optional
-            Number of k-nearest neighbors considered for oversampling.
-
+            Number of nearest neighbors considered for interpolation. Default is 5.
         num_bins : int, optional
-            The number of bins to use for discretizing numeric columns. Default is 10.
-        
+            Number of bins for discretizing numeric features. Default is 10.
         allowed_bin_deviation : int, optional
-            The maximum allowed deviation in binning to consider samples similar. Default is 1.
-        
+            Maximum bin deviation to consider samples similar. Default is 1.
         noise_factor : float, optional
-            The multiplier applied to the standard deviations when adding Gaussian noise to numeric columns. Default is 0.1.
-        
+            Multiplier for Gaussian noise applied to numeric features. Default is 0.01.
         ignore_categorical_similarity : bool, optional
-            If True, categorical features are ignored when calculating similarity between samples. Default is False.
-        
+            If True, categorical similarity is ignored when finding neighbors. Default is False.
         enable_undersampling : bool, optional
-            If True, undersampling is performed on the dataset. Default is True.
+            If True, perform undersampling. Default is True.
 
-        Returns:
+        Returns
         -------
-        new_dataset : pd.DataFrame
-            The new dataset with the synthetic samples added and undersampling applied (if enabled).
+        pd.DataFrame
+            New dataset with synthetic samples added and undersampling applied (if enabled).
  
         Notes:
         -----
@@ -79,7 +96,7 @@ class cSMOGN(BaseMitigationMethod):
         self.noise_factor = noise_factor
         self.num_bins = num_bins
         # Discretize the dataset for similarity calculations
-        self.binned_data = self.discretize_dataset(
+        self.binned_data = self._discretize_dataset(
             self.data, self.num_bins, self.numeric_columns, self.categorical_columns, self.ignore_categorical_similarity).to_numpy()
 
 
@@ -151,8 +168,26 @@ class cSMOGN(BaseMitigationMethod):
 
     def oversample(self, reference_sample_index: int, 
                     knns: int) -> tuple[np.ndarray, bool]:
+        """
+        Generate a synthetic sample based on a reference sample using interpolation or Gaussian noise.
+
+        Parameters
+        ----------
+        reference_sample_index : int
+            Index of the reference sample in the dataset.
+        knns : int
+            Number of nearest neighbors for interpolation.
+
+        Returns
+        -------
+        Tuple[np.ndarray, bool]
+            new_sample : np.ndarray
+                The generated synthetic sample.
+            interpolated : bool
+                True if generated by interpolation, False if generated by Gaussian noise.
+        """
         # get similar samples indice (rows) based on the discretized data
-        similar_rows = self.get_similar_samples(
+        similar_rows = self._get_similar_samples(
                 index = reference_sample_index, 
                 binned_data = self.binned_data, 
                 numerical_mask =self.numerical_mask, 
@@ -167,7 +202,7 @@ class cSMOGN(BaseMitigationMethod):
 
             # check if enough similar samples where found. If yes, get k-nearest neighbors.
             if similar_samples.shape[0] > knns:
-                distances = self.heom_distance(x=self.data_numpy[reference_sample_index],
+                distances = self._heom_distance(x=self.data_numpy[reference_sample_index],
                                     y=similar_samples,
                                     feature_ranges= self.feature_ranges,
                                     categorical_mask=self.categorical_mask,
@@ -179,7 +214,7 @@ class cSMOGN(BaseMitigationMethod):
 
             # randomly pick one of the samples for interpolation
             neighbor_sample = nearest_neighbors[np.random.choice(nearest_neighbors.shape[0], replace=False)]
-            new_sample = self.interpolate_sample(x=self.data_numpy[reference_sample_index],
+            new_sample = self._interpolate_sample(x=self.data_numpy[reference_sample_index],
                                                                     y=neighbor_sample,
                                                                     feature_ranges= self.feature_ranges,
                                                                     categorical_mask= self.categorical_mask,
@@ -187,7 +222,7 @@ class cSMOGN(BaseMitigationMethod):
             interpolated = True
         # if not 
         else:
-            new_sample = self.add_gaussian_noise(x=self.data_numpy[reference_sample_index],
+            new_sample = self._add_gaussian_noise(x=self.data_numpy[reference_sample_index],
                                                                     standard_deviations= self.standard_deviations,
                                                                     noise_factor= self.noise_factor,
                                                                     n_samples= 1,
@@ -197,3 +232,79 @@ class cSMOGN(BaseMitigationMethod):
             interpolated = False
  
         return new_sample, interpolated
+
+
+
+
+
+def apply_csmogn(data: pd.DataFrame,
+                 target_column: str,
+                 relevance_values: pd.Series,
+                enable_undersampling: bool = True,
+                oversample_rate: float = 0.5,
+                undersample_rate: float = 0.5,
+                num_bins: int = 10,
+                allowed_bin_deviation: int = 1,
+                noise_factor: float = 0.01,
+                ignore_categorical_similarity: bool = False,
+                knns: int = 5 
+                ):
+    """
+    Apply the cSMOGN sampling technique to balance an imbalanced regression dataset.
+
+    This function creates a new dataset by generating synthetic samples for minority
+    cases using interpolation and Gaussian noise, and optionally removing majority
+    cases through undersampling.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The input dataset to be balanced.
+    target_column : str
+        Name of the target variable column.
+    relevance_values : pd.Series
+        Relevance scores for each sample in the dataset, ranging from 0 to 1.
+        Samples with higher relevance values are considered more important.
+    enable_undersampling : bool, optional
+        If True, applies undersampling to reduce majority class samples. Default is True.
+    oversample_rate : float, optional
+        Proportion of the original dataset size to generate via oversampling. Default is 0.5.
+    undersample_rate : float, optional
+        Proportion of the original dataset size to remove via undersampling. Default is 0.5.
+    num_bins : int, optional
+        Number of bins used for discretizing numeric features during similarity calculations. Default is 10.
+    allowed_bin_deviation : int, optional
+        Maximum bin difference allowed for considering two samples similar. Default is 1.
+    noise_factor : float, optional
+        Factor controlling the magnitude of Gaussian noise added to numeric features. Default is 0.01.
+    ignore_categorical_similarity : bool, optional
+        If True, ignores categorical feature differences when finding similar samples. Default is False.
+    knns : int, optional
+        Number of nearest neighbors used for interpolation. Default is 5.
+
+    Returns
+    -------
+    pd.DataFrame
+        A new balanced dataset with synthetic samples added and/or majority samples removed.
+
+    Notes
+    -----
+    - The function internally uses the cSMOGN class to perform the actual sampling.
+    - Synthetic samples are generated either through interpolation with nearest neighbors
+      or by adding Gaussian noise to existing samples.
+    - The sampling process respects the relevance values provided by the user.
+    """
+    logging.debug('Begin cSMOGN...')
+    sampler = cSMOGN(data = data,
+                    target_column = target_column,
+                    relevance_values = relevance_values)
+    new_data = sampler.run_sampling(oversample_rate=oversample_rate,
+                                    undersample_rate=undersample_rate,
+                                    knns=knns,
+                                    num_bins=num_bins,
+                                    allowed_bin_deviation=allowed_bin_deviation,
+                                    noise_factor=noise_factor,
+                                    ignore_categorical_similarity=ignore_categorical_similarity,
+                                    enable_undersampling=enable_undersampling)    
+    logging.debug('Finished cSMOGN...')
+    return new_data 

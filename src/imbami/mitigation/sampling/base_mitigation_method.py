@@ -1,15 +1,45 @@
 import pandas as pd
 import numpy as np
+from .utils import heom_distance
+from abc import ABC, abstractmethod
 
-class BaseMitigationMethod:
+
+
+
+
+class SamplingMethodBase(ABC):
+    """
+    Universal interface that ALL relevance functions must implement.
+    """
+    def __init__(self, data: pd.DataFrame, target_column: str, relevance_values: pd.Series) -> None:
+        self.data = data
+        self.relevance_values = relevance_values
+        self.target_column = target_column
+    
+    @abstractmethod
+    def run_sampling(self, *args, **kwargs) -> pd.DataFrame:
+        """
+        Compute relevance scores for input values.
+
+        Must be implemented by subclasses to define the specific relevance computation.
+
+        Args:
+            y: Input values for which to compute relevance scores.
+
+        Returns:
+            Computed relevance scores for the input values.
+        """
+        raise NotImplementedError
+
+
+
+
+class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):
     def __init__(self,
                 data: pd.DataFrame,
                 target_column: str,
                 relevance_values: pd.Series):
-
-        self.data = data
-        self.relevance_values = relevance_values
-        self.target_column = target_column  
+        super().__init__(data=data, target_column=target_column, relevance_values=relevance_values) 
 
         # Sort target column to be at the front
         self.data = self.data[[self.target_column] + [col for col in self.data.columns if col != self.target_column]]
@@ -25,8 +55,10 @@ class BaseMitigationMethod:
         self.categorical_mask = np.array([True if col in self.categorical_columns else False for col in self.data.columns])
         self.numerical_mask = ~self.categorical_mask
 
+        self._heom_distance = heom_distance
 
-    def discretize_dataset(self,
+
+    def _discretize_dataset(self,
         data: pd.DataFrame, 
         num_bins: int, 
         numeric_columns: list, 
@@ -71,7 +103,7 @@ class BaseMitigationMethod:
         
         return binned_data
         
-    def interpolate_sample(self,
+    def _interpolate_sample(self,
         x: np.ndarray, 
         y: np.ndarray, 
         feature_ranges: np.ndarray,
@@ -119,12 +151,12 @@ class BaseMitigationMethod:
 
         # Calculate distance (exclude target column)
         # heom_distance returns an (1,) array, thus reduce it to float using [0]
-        dist_ref = self.heom_distance(x= x[1:],
+        dist_ref = self._heom_distance(x= x[1:],
                                     y=new_sample[1:],
                                     feature_ranges=feature_ranges[1:],
                                     categorical_mask=categorical_mask[1:],
                                     numerical_mask=numerical_mask[1:])[0]
-        dist_near = self.heom_distance(x= y[1:],
+        dist_near = self._heom_distance(x= y[1:],
                                     y=new_sample[1:],
                                     feature_ranges=feature_ranges[1:],
                                     categorical_mask=categorical_mask[1:],
@@ -142,7 +174,7 @@ class BaseMitigationMethod:
 
 
 
-    def add_gaussian_noise(self,
+    def _add_gaussian_noise(self,
         x: np.ndarray, 
         standard_deviations: np.ndarray, 
         noise_factor: float,
@@ -194,7 +226,7 @@ class BaseMitigationMethod:
 
 
 
-    def get_similar_samples(self,
+    def _get_similar_samples(self,
         index: int, 
         binned_data: np.ndarray, 
         numerical_mask: np.ndarray, 
@@ -260,71 +292,3 @@ class BaseMitigationMethod:
         # Return the indices of rows that match the mask
         return np.where(mask)[0]
 
-
-    def heom_distance(self,
-        x: np.ndarray,
-        y: np.ndarray,
-        feature_ranges: np.ndarray,
-        categorical_mask: np.ndarray,
-        numerical_mask: np.ndarray) -> np.ndarray:
-        """
-        Calculate the Heterogeneous Euclidean-Overlap Metric (HEOM) distance between:
-        - two 1D arrays, or
-        - a 1D array and each row of a 2D array.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Array of shape (a,) representing one data point.
-        y : np.ndarray
-            Array of shape (a,) or (n, a) representing one or multiple data points.
-        feature_ranges : np.ndarray
-            Range (max - min) of each numerical feature.
-        categorical_mask : np.ndarray
-            Boolean mask indicating categorical features.
-        numerical_mask : np.ndarray
-            Boolean mask indicating numerical features.
-
-        Returns
-        -------
-        np.ndarray
-            Array of HEOM distances. Shape (1,) if y is 1D, else (n,).
-        """
-        if y.ndim == 1 or y.ndim == 0:
-            y = y.reshape(1, -1)
-            single_input = True
-        else:
-            single_input = False
-
-        x = x.reshape(1, -1)  # Shape (1, a)
-        feature_ranges = feature_ranges.reshape(-1) # for the case Shape(0) (float input)
-        categorical_mask = categorical_mask.reshape(-1)
-        numerical_mask = numerical_mask.reshape(-1)
-
-        # Masks
-        nan_mask = np.isnan(x) | np.isnan(y)  # Shape (n, a)
-        range_mask = (feature_ranges != 0)
-        num_mask = numerical_mask & range_mask  # Shape (a,)
-
-        # Initialize distances
-        distances = np.zeros_like(y, dtype=float)
-
-        # Categorical distance (0 if same, 1 if different)
-        distances[:, categorical_mask] = (x[:, categorical_mask] != y[:, categorical_mask])
-
-        # Numerical distance (normalized by feature range)
-        valid_x = x[:, num_mask]
-        valid_y = y[:, num_mask]
-        valid_ranges = feature_ranges[num_mask]
-        distances[:, num_mask] = np.abs(valid_x - valid_y) / valid_ranges
-
-        # Missing value handling: set distance to 1
-        missing_mask = np.logical_or(nan_mask, ~np.expand_dims(range_mask, axis=0))
-        distances[missing_mask] = 1
-
-        # HEOM distance
-        heom = np.sqrt(np.sum(distances ** 2, axis=1))
-
-        if single_input:
-            return heom.reshape(1)
-        return heom

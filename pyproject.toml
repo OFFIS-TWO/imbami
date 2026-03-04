@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "imbami"
+version = "0.2.0"
+description = "A python package for the mitigation of data imbalance. It includes implementation of density-distance relevance, density-ratio relevance, cSMOGN and crbSMOGN."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE.txt" }
+authors = [
+    { name = "Jelke Wibbeke", email = "jelke.wibbeke@offis.de" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research"
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "KDEpy"
+]
+
+[project.urls]
+Homepage = "https://github.com/OFFIS-ROC/imbami"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
