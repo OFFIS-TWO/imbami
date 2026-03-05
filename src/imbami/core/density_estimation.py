@@ -161,8 +161,8 @@ def density(data: pd.Series,
 
 def get_kernel(data: np.ndarray,
                bw_type: str | float,
-               bw_factor: float = 1.0,
-               kernel_type: str = 'gaussian') -> KDEpy.FFTKDE | Uniform_kernel:
+               bw_factor: float | None = 1.0,
+               kernel_type: str | None = 'gaussian') -> KDEpy.FFTKDE | Uniform_kernel:
     """
     Returns a Gaussian KDE kernel using specified bandwidth type or a uniform kernel for 'uniform'.
 
@@ -181,23 +181,27 @@ def get_kernel(data: np.ndarray,
         raise ValueError(f"{bw_type=} is not an acceptable value: {usable_bw_type}")
 
     if bw_type == 'uniform':
-        return Uniform_kernel(data=data)
-    elif isinstance(bw_type, (int, float)):
-        bandwidth = float(bw_type)
+        kernel =  Uniform_kernel(data=data)
     else:
-        match bw_type:
-            case 'ISJ':
-                try:
-                    bandwidth = improved_sheather_jones(data.reshape(-1,1))
-                except Exception as error:
-                    logging.warning('Failed to compute ISJ Bandwidth. Fall back to Silverman bandwidth as default.\n' + f'Exception error: {error}')
+        if kernel_type is None:
+            raise ValueError("kernel_type is None. It must be provided if bw_type is not 'uniform'.")
+        if isinstance(bw_type, (int, float)):
+            bandwidth = float(bw_type)
+        else:
+            match bw_type:
+                case 'ISJ':
+                    try:
+                        bandwidth = improved_sheather_jones(data.reshape(-1,1))
+                    except Exception as error:
+                        logging.warning('Failed to compute ISJ Bandwidth. Fall back to Silverman bandwidth as default.\n' + f'Exception error: {error}')
+                        bandwidth = (4*data.std(ddof=1)**5 / 3 / len(data))**(1/5)
+                case 'silverman':
                     bandwidth = (4*data.std(ddof=1)**5 / 3 / len(data))**(1/5)
-            case 'silverman':
-                bandwidth = (4*data.std(ddof=1)**5 / 3 / len(data))**(1/5)
-            case _:
-                raise ValueError(f"Unsupported bw_type: {bw_type}")
+                case _:
+                    raise ValueError(f"Unsupported bw_type: {bw_type}")
+        if isinstance(bw_factor, float):   
+            bandwidth = bandwidth * bw_factor
         
-    bandwidth = bandwidth * bw_factor
 
-    kernel = KDEpy.FFTKDE(bw = bandwidth, kernel = kernel_type).fit(data) # type: ignore
+        kernel = KDEpy.FFTKDE(bw = bandwidth, kernel = kernel_type).fit(data) # type: ignore
     return kernel

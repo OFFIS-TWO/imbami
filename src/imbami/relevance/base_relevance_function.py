@@ -148,12 +148,14 @@ class EmpiricalDomainRelevanceFunctionBase(RelevanceFunctionBase, ABC):
             case 'fit_kde':
                 if emp_data is None:
                     raise ValueError("emp_data is None. It must be provided if empirical density mode is set to 'fit_kde'.")
-                if emp_bw_type is None:
-                    raise ValueError("emp_bw_type is None. It must be provided if empirical density mode is set to 'fit_kde'.")
-                if emp_bw_factor is None:
-                    raise ValueError("emp_bw_factor is None. It must be provided if empirical density mode is set to 'fit_kde'.")
-                if emp_kernel_type is None:
-                    raise ValueError("emp_kernel_type is None. It must be provided if empirical density mode is set to 'fit_kde'.")
+                if not emp_bw_type == 'uniform':
+                    if emp_bw_type is None:
+                        raise ValueError("emp_bw_type is None. It must be provided if empirical density mode is set to 'fit_kde'.")
+                    if emp_kernel_type is None:
+                        raise ValueError("emp_kernel_type is None. It must be provided if empirical density mode is set to 'fit_kde'.")
+                    if emp_bw_factor is None:
+                        raise ValueError("emp_bw_factor is None. It must be provided if empirical density mode is set to 'fit_kde'.")
+
                 
                 self.emp_data = emp_data
                 self.emp_bw_type = emp_bw_type
@@ -179,12 +181,13 @@ class EmpiricalDomainRelevanceFunctionBase(RelevanceFunctionBase, ABC):
             case 'fit_kde':
                 if domain_data is None:
                     raise ValueError("domain_data is None. It must be provided if domain density mode is set to 'fit_kde'.")
-                if domain_bw_type is None:
-                    raise ValueError("domain_bw_type is None. It must be provided if domain density mode is set to 'fit_kde'.")
-                if domain_bw_factor is None:
-                    raise ValueError("domain_bw_factor is None. It must be provided if domain density mode is set to 'fit_kde'.")
-                if domain_kernel_type is None:
-                    raise ValueError("domain_kernel_type is None. It must be provided if domain density mode is set to 'fit_kde'.")
+                if not domain_bw_type == 'uniform':
+                    if domain_bw_type is None:
+                        raise ValueError("domain_bw_type is None. It must be provided if domain density mode is set to 'fit_kde'.")
+                    if domain_bw_factor is None:
+                        raise ValueError("domain_bw_factor is None. It must be provided if domain density mode is set to 'fit_kde'.")
+                    if domain_kernel_type is None:
+                        raise ValueError("domain_kernel_type is None. It must be provided if domain density mode is set to 'fit_kde'.")
                 
                 self.domain_data = domain_data
                 self.domain_bw_type = domain_bw_type
