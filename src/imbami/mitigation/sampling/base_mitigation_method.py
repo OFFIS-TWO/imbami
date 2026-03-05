@@ -9,44 +9,137 @@ from abc import ABC, abstractmethod
 
 class SamplingMethodBase(ABC):
     """
-    Universal interface that ALL relevance functions must implement.
+    Abstract base class for all sampling methods.
+
+    This class provides the common interface and functionality that all sampling methods
+    should implement. It handles the basic data preparation and provides utility methods
+    for random number generation.
+
+    Attributes:
+    ----------
+    data : pd.DataFrame
+        The input data containing features and target column.
+    relevance_values : pd.Series
+        Relevance values corresponding to each row in the data.
+    target_column : str
+        Name of the target column in the data.
+    numeric_columns : list
+        List of numeric column names.
+    categorical_columns : list
+        List of categorical column names.
+
+    Methods:
+    -------
+    run_sampling(*args, **kwargs) -> pd.DataFrame:
+        Abstract method to be implemented by subclasses for performing the sampling.
+    _get_random_generator(random_state: int|None) -> np.random.Generator:
+        Utility method to create a random number generator with optional seed.
     """
     def __init__(self, data: pd.DataFrame, target_column: str, relevance_values: pd.Series) -> None:
+        """
+        Initialize the sampling method with data, target column, and relevance values.
+
+        Parameters:
+        ----------
+        data : pd.DataFrame
+            The input data containing features and target column. The target column
+            should be present in this DataFrame.
+        target_column : str
+            Name of the target column in the data. This column will be moved to the
+            first position in the DataFrame.
+        relevance_values : pd.Series
+            Relevance values corresponding to each row in the data. Must have the same
+            length and index as the data DataFrame.
+
+        Raises:
+        ------
+        ValueError
+            If relevance_values has a different length or index than the data DataFrame.
+        """
         self.data = data
         self.relevance_values = relevance_values
         self.target_column = target_column
-    
+        if data.shape[0] != relevance_values.shape[0]:
+            raise ValueError("relevance_values must have same length as data.")
+        if not data.index.equals(relevance_values.index):
+            raise ValueError("relevance_values must have the same index as data.")
+        
+        # Sort target column to be at the front
+        self.data = self.data[[self.target_column] + [c for c in self.data.columns if c != self.target_column]]
+        # Identify numeric and categorical columns
+        self.numeric_columns = list(self.data.select_dtypes(include=['number']).columns)
+        self.categorical_columns = [col for col in self.data.columns if col not in self.numeric_columns]
+
     @abstractmethod
     def run_sampling(self, *args, **kwargs) -> pd.DataFrame:
         """
-        Compute relevance scores for input values.
+        Perform the sampling operation and return the sampled data.
 
-        Must be implemented by subclasses to define the specific relevance computation.
-
-        Args:
-            y: Input values for which to compute relevance scores.
+        Must be implemented by subclasses to define the specific sampling method.
 
         Returns:
-            Computed relevance scores for the input values.
+        -------
+        pd.DataFrame
+            The sampled data as a DataFrame.
         """
         raise NotImplementedError
+    
+    def _get_random_generator(self, random_state: int|None) -> np.random.Generator:
+        if random_state is not None:
+            rng = np.random.default_rng(random_state)
+        else:
+            rng = np.random.default_rng()
+        return rng
 
 
 
 
 class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):
+    """
+    This base class extends SamplingMethodBase with functionality specifically designed
+    for oversampling techniques that are designed to work with both the empirical distribution
+    of the data and the domain distribution.
+
+    Attributes:
+    ----------
+    data_numpy : np.ndarray
+        The data converted to a NumPy array for efficient numerical operations.
+    feature_ranges : np.ndarray
+        The range (max-min) of each feature, used for distance calculations.
+    standard_deviations : np.ndarray
+        Standard deviations of each feature, used for Gaussian noise addition.
+    categorical_mask : np.ndarray
+        Boolean mask indicating which features are categorical.
+    numerical_mask : np.ndarray
+        Boolean mask indicating which features are numerical.
+    _heom_distance : function
+        Reference to the HEOM distance function for calculating distances between samples.
+    """
     def __init__(self,
                 data: pd.DataFrame,
                 target_column: str,
                 relevance_values: pd.Series):
+        """
+        Initialize the sampling method with data, target column, and relevance values.
+
+        Parameters:
+        ----------
+        data : pd.DataFrame
+            The input data containing features and target column. The target column
+            should be present in this DataFrame.
+        target_column : str
+            Name of the target column in the data. This column will be moved to the
+            first position in the DataFrame.
+        relevance_values : pd.Series
+            Relevance values corresponding to each row in the data. Must have the same
+            length and index as the data DataFrame.
+
+        Raises:
+        ------
+        ValueError
+            If relevance_values has a different length or index than the data DataFrame.
+        """
         super().__init__(data=data, target_column=target_column, relevance_values=relevance_values) 
-
-        # Sort target column to be at the front
-        self.data = self.data[[self.target_column] + [col for col in self.data.columns if col != self.target_column]]
-
-        # Identify numeric and categorical columns
-        self.numeric_columns = list(self.data.select_dtypes(include=['number']).columns)
-        self.categorical_columns = [col for col in self.data.columns if col not in self.numeric_columns]
 
         # Prepare for oversampling
         self.data_numpy = self.data.to_numpy()
@@ -109,45 +202,45 @@ class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):
         feature_ranges: np.ndarray,
         categorical_mask: np.ndarray,
         numerical_mask: np.ndarray,
+        rng: np.random.Generator
         ) -> np.ndarray:
         """
         Generate a new synthetic sample by interpolating between two samples.
 
-        This function is inspired by the SMOTE technique and interpolates both categorical and numeric data 
-        to create a new synthetic sample.
+        This function is inspired by the SMOTE technique and interpolates both categorical and numeric data
+        to create a new synthetic sample. The target column is interpolated based on HEOM distance.
 
         Parameters:
         ----------
         x : np.ndarray
             The first sample (reference data point).
-        
         y : np.ndarray
             Second sample.
-        
         feature_ranges : np.ndarray
             The range (max-min) of each feature for calculating the HEOM-distance.
-
         categorical_mask : np.ndarray
             Array of length a containing True if the corresponding data point is categorical, else False.
-
         numerical_mask : np.ndarray
             Array of length a containing True if the corresponding data point is numerical, else False.
+        rng : np.random.Generator
+            Random number generator for reproducibility.
 
         Returns:
         -------
         np.ndarray
-            A new synthetic sample interpolated between the two input samples.
+            A new synthetic sample interpolated between the two input samples, with the target column
+            interpolated based on HEOM distance.
         """
         new_sample = np.zeros_like(x)
 
         # For categoricals chose between both options
-        random_choices = np.random.rand(categorical_mask.sum()) < 0.5
+        random_choices = rng.random(categorical_mask.sum()) < 0.5
         # Set values in result based on random choices
         new_sample[categorical_mask] = np.where(random_choices, x[categorical_mask], y[categorical_mask])
 
         # For numericals interpolate between both options (exclude target column)
         diffs = y[1:][numerical_mask[1:]] - x[1:][numerical_mask[1:]]
-        new_sample[1:][numerical_mask[1:]] = x[1:][numerical_mask[1:]] + np.random.uniform(size=numerical_mask[1:].sum()) * diffs
+        new_sample[1:][numerical_mask[1:]] = x[1:][numerical_mask[1:]] + rng.uniform(size=numerical_mask[1:].sum()) * diffs
 
         # Calculate distance (exclude target column)
         # heom_distance returns an (1,) array, thus reduce it to float using [0]
@@ -180,7 +273,8 @@ class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):
         noise_factor: float,
         n_samples: int,
         numerical_mask: np.ndarray,
-        categorical_mask: np.ndarray
+        categorical_mask: np.ndarray,
+        rng: np.random.Generator
     ) -> np.ndarray:
         """
         Add Gaussian noise to a reference sample based on specified standard deviations and a noise factor.
@@ -214,7 +308,7 @@ class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):
         noisy_samples = np.zeros((n_samples, x.shape[0]))
         
         # Generate noise only for numerical features
-        noise = np.random.normal(0, standard_deviations[numerical_mask] * noise_factor, size= (n_samples, np.sum(numerical_mask)))
+        noise = rng.normal(0, standard_deviations[numerical_mask] * noise_factor, size= (n_samples, np.sum(numerical_mask)))
         
         noisy_samples[:, numerical_mask] = x[numerical_mask] + noise
         
@@ -241,30 +335,21 @@ class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):
         ----------
         index : int
             The index of the row to compare against.
-        
         binned_data : np.ndarray
             The array containing the data. It should be pre-binned if numeric columns are used.
-        
         numerical_mask : np.ndarray
             A boolean mask indicating which columns are numeric.
-        
         categorical_mask : np.ndarray
             A boolean mask indicating which columns are categorical.
-        
         allowed_bin_deviation : int
             The allowed deviation in bin values for numeric columns to consider rows as similar.
-        
         ignore_categoricals : bool
             If True, the function will ignore categorical columns when determining similarity.
-            
-        target_row : np.ndarray, optional
-            The row data from the original DataFrame corresponding to the index.
-            If not provided, it will be derived from the `binned_data` using the `index`.
 
         Returns:
         -------
         np.ndarray
-            The indices of the rows in the array that are similar to the specified row.
+            Array of indices of rows that are similar to the specified row, excluding the row at the given index.
         """
         # Get target row from index if not provided
         target_row = binned_data[index]
