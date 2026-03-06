@@ -82,11 +82,6 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
                           domain_kernel_type= domain_kernel_type,
                           emp_pdf= emp_pdf,
                           domain_pdf= domain_pdf)  
-
-        # Get normalization
-        density_dist = self._get_distance(self.emp_data)
-        self.min_dist = np.min(density_dist)
-        self.max_dist = np.max(density_dist)
         super().fit()
 
     def eval(self, y: np.ndarray) -> np.ndarray:
@@ -109,6 +104,8 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
         if not self.is_fitted:
             raise RuntimeError("eval() can not be called before fit().")
         lamb = self._get_distance(y)
+        self.min_dist = np.min(lamb)
+        self.max_dist = np.max(lamb)
         if self.centered:
             relevance = self._prob_dist_to_centered_relevance(lamb)
         else:
