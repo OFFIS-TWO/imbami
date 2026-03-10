@@ -138,7 +138,7 @@ class cSMOGN(EmpiricalDomainMitigationMethodBase):
         self.num_oversampled_samples = 0
 
         while self.num_oversampled_samples < total_oversample_count:
-            random_index = rng.integers(0, self.relevance_values_numpy.shape[0])
+            random_index = int(rng.integers(0, self.relevance_values_numpy.shape[0]))
             sample_weight = self.relevance_values_numpy[random_index]
             sample_weight = sample_weight**2
             if sample_weight > rng.uniform(low=0, high=1):
@@ -169,10 +169,10 @@ class cSMOGN(EmpiricalDomainMitigationMethodBase):
             undersample_indice = -np.ones(n_undersample, dtype=int)
             while self.num_undersampled_samples < n_undersample:
                 # pick random index and the respective inverted weight
-                random_index = np.random.randint(0, self.relevance_values_numpy.shape[0])
+                random_index = rng.integers(0, self.relevance_values_numpy.shape[0])
                 sample_weight = 1 - self.relevance_values_numpy[random_index]
                 sample_weight = sample_weight**2
-                if sample_weight > np.random.uniform(low=0, high=1):
+                if sample_weight > rng.uniform(low=0, high=1):
                     if random_index not in undersample_indice:
                         undersample_indice[self.num_undersampled_samples] = random_index
                         self.num_undersampled_samples += 1
