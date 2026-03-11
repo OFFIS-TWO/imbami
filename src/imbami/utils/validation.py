@@ -1,38 +1,137 @@
-from typing import get_args, Union, Any, Dict
 import inspect
+from typing import Dict, Any, Callable, get_args, get_origin, Union, Literal
+from types import NoneType
 
-def extract_explicit_parameters(callable_obj, **kwargs) -> Dict[str, Any]:
+
+def get_callable_parameters(callable_obj: Callable[..., Any]) -> Dict[str, inspect.Parameter]:
     """
-    Returns a dictionary of parameters strictly required by the callable (including defaults).
-    Raises ValueError if any parameter is missing and TypeError if types mismatch.
+    Return all explicit parameters of a callable excluding *args and **kwargs.
     """
     sig = inspect.signature(callable_obj)
-    validated_params = {}
 
-    for name, param in sig.parameters.items():
-        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-            continue
+    # Skip 'self' if this is a bound method
+    parameters = {
+        name: param
+        for name, param in sig.parameters.items()
+        if name != "self" and param.kind not in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+        and not (name == "self" and hasattr(callable_obj, "__self__"))
+    }
+    return parameters
 
-        if name not in kwargs:
-            raise ValueError(
-                f"Missing required explicit parameter '{name}' for {callable_obj.__name__}"
+
+def validate_parameter_type(
+    name: str,
+    value: Any,
+    annotation: Any,
+    callable_name: str
+) -> None:
+    """
+    Validate a single parameter value against its annotation.
+    """
+
+    if annotation is inspect.Parameter.empty:
+        return
+
+    origin = get_origin(annotation)
+
+    # ---------- Literal ----------
+    if origin is Literal:
+        allowed_values = get_args(annotation)
+
+        if value not in allowed_values:
+            raise TypeError(
+                f"Parameter '{name}' for {callable_name} must be one of "
+                f"{allowed_values}, got {value}"
+            )
+        return
+
+    # ---------- Union ----------
+    if origin is Union:
+        union_types = [
+            NoneType if t is type(None) else t
+            for t in get_args(annotation)
+            if isinstance(t, type) or t is type(None)
+        ]
+
+        if union_types and not any(
+            isinstance(value, t) or (t is float and isinstance(value, int))
+            for t in union_types
+        ):
+            raise TypeError(
+                f"Parameter '{name}' for {callable_name} must be one of "
+                f"{[t.__name__ for t in union_types]}, got {type(value).__name__}"
+            )
+        return
+
+    # ---------- Normal type ----------
+    if isinstance(annotation, type):
+
+        if not isinstance(value, annotation):
+            raise TypeError(
+                f"Parameter '{name}' for {callable_name} must be "
+                f"{annotation.__name__}, got {type(value).__name__}"
             )
 
+
+def extract_explicit_parameters(
+    callable_obj: Callable[..., Any],
+    **kwargs: Any
+) -> tuple[Dict[str, Any], set[str]]:
+    """
+    Validate and extract explicitly declared parameters for a callable.
+
+    Only considers parameters with fixed names and type annotations.
+    Automatically skips:
+      - 'self' for bound methods
+      - *args and **kwargs
+
+    Performs static validation only; the callable is not executed.
+
+    Parameters
+    ----------
+    callable_obj : Callable[..., Any]
+        Function, method, or class constructor to validate parameters for.
+    **kwargs : Any
+        Keyword arguments intended for the callable.
+
+    Returns
+    -------
+    validated_params : Dict[str, Any]
+        Dictionary containing parameters that were both provided and valid.
+    unused_params : set[str]
+        Set of extra kwargs that were not used by the callable.
+
+    Raises
+    ------
+    ValueError
+        If one or more required parameters are missing.
+    TypeError
+        If a parameter value does not match its annotated type.
+    """
+    callable_name = getattr(callable_obj, "__name__", str(callable_obj))
+  
+    parameters = get_callable_parameters(callable_obj=callable_obj)
+
+    validated_params: Dict[str, Any] = {}
+    missing_params: list[str] = []
+
+    # First pass: collect missing parameters
+    for name, param in parameters.items():
+        if name not in kwargs:
+            missing_params.append(name)
+
+    if missing_params:
+        raise ValueError(
+            f"Missing required explicit parameter(s) for {callable_name}: {missing_params}"
+        )
+
+    # Second pass: validate types
+    for name, param in parameters.items():
         value = kwargs[name]
-
-        if param.annotation is not inspect.Parameter.empty:
-            expected_type = param.annotation
-
-            # Handle union types (Python 3.10+ syntax e.g., int | None)
-            types_to_check = get_args(expected_type) or (expected_type,)
-
-            if not any(isinstance(value, t) or (t is float and isinstance(value, int)) for t in types_to_check):
-                type_names = ", ".join(t.__name__ if hasattr(t, "__name__") else str(t) for t in types_to_check)
-                raise TypeError(
-                    f"Parameter '{name}' for {callable_obj.__name__} must be of type "
-                    f"{type_names}, got {type(value).__name__}"
-                )
-
+        validate_parameter_type(name, value, param.annotation, callable_name)
         validated_params[name] = value
 
-    return validated_params
+    # Log extra kwargs
+    unused_params = set(kwargs) - set(parameters)
+
+    return validated_params, unused_params

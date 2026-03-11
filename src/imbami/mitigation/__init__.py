@@ -1,5 +1,5 @@
 from .sampling import cSMOGN, crbSMOGN, WERCS, apply_wercs, apply_crbsmogn, apply_csmogn
-from .access import sampling_factory
+from .access import sampling_factory, SAMPLING_METHODS
 
 __all__ = ["cSMOGN",
            "apply_csmogn",
@@ -8,4 +8,5 @@ __all__ = ["cSMOGN",
            "WERCS",
            "apply_wercs",
            
-           "sampling_factory"]
+           "sampling_factory",
+           "SAMPLING_METHODS"]

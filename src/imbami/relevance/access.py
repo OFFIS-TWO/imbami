@@ -7,12 +7,22 @@ from .interpolation_with_controlpoints import InterpolationWithControlPoints
 from .label_distribution_smoothing import LabelDistributionSmoothing
 from .kernel_density_relevance import KernelDensityRelevance
 from ..utils.validation import extract_explicit_parameters
+from denseweight import DenseWeight
 
+RELEVANCE_FUNCTIONS = {
+    "density_distance": DensityDistanceRelevance,
+    "density_ratio": DensityRatioRelevance,
+    "histogram": HistogramBasedRelevance,
+    "interpolation": InterpolationWithControlPoints,
+    "kdr": KernelDensityRelevance,
+    "lds": LabelDistributionSmoothing,
+    "densweight": DenseWeight
+}
 
 
 
 def relevance_function_factory(
-    relevance_type: Literal["density_distance", "density_ratio", "histogram", "interpolation", "kde", "lds"],
+    relevance_type: Literal["density_distance", "density_ratio", "histogram", "interpolation", "kdr", "lds"],
     **kwargs
 ) -> RelevanceFunctionBase:
     """
@@ -28,30 +38,21 @@ def relevance_function_factory(
         A fitted relevance function object ready for evaluation
     """
 
-    # Map string identifiers to relevance function classes
-    relevance_classes = {
-        "density_distance": DensityDistanceRelevance,
-        "density_ratio": DensityRatioRelevance,
-        "histogram": HistogramBasedRelevance,
-        "interpolation": InterpolationWithControlPoints,
-        "kde": KernelDensityRelevance,
-        "lds": LabelDistributionSmoothing
-    }
 
-    if relevance_type not in relevance_classes:
-        available_types = ", ".join(relevance_classes.keys())
+    if relevance_type not in RELEVANCE_FUNCTIONS:
+        available_types = ", ".join(RELEVANCE_FUNCTIONS.keys())
         raise ValueError(f"Unknown relevance type '{relevance_type}'. Available types: {available_types}")
 
-    RelevanceClass = relevance_classes[relevance_type]
+    RelevanceClass = RELEVANCE_FUNCTIONS[relevance_type]
 
     # Extract parameters strictly required for __init__
-    init_params = extract_explicit_parameters(RelevanceClass, **kwargs)
+    init_params, unused_params = extract_explicit_parameters(RelevanceClass, **kwargs)
 
     # Instantiate the relevance function
     relevance_func = RelevanceClass(**init_params)
 
     # Extract parameters strictly required for fit
-    fit_params = extract_explicit_parameters(relevance_func.fit, **kwargs)
+    fit_params, unused_params = extract_explicit_parameters(relevance_func.fit, **kwargs)
 
     # Fit the relevance function
     relevance_func.fit(**fit_params)
