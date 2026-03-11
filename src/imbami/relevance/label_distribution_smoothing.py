@@ -10,7 +10,7 @@ class LabelDistributionSmoothing(RelevanceFunctionBase):
         super().__init__()
         self.type = "LabelDistributionSmoothing"
 
-    def fit(self, data: np.ndarray, bins: int = 50, kernel_size = 5, kernel_sigma = 2) -> None:
+    def fit(self, data: np.ndarray, bins: int = 50, kernel_size: int = 5, kernel_sigma: int = 2) -> None:
         self.data = data
         self.bins = bins
         self.kernel_size = kernel_size

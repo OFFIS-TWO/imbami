@@ -47,7 +47,9 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
             domain_bw_type: None | str = 'uniform',
             domain_bw_factor: None | float = 1.0,
             domain_kernel_type: None | str = 'gaussian',
-            domain_pdf: None | Callable = None)  -> None:
+            domain_pdf: None | Callable = None,
+            
+            grid_points: int = 4096)  -> None:
         """
         Fit density estimators to both empirical and domain datasets.
 
@@ -81,7 +83,8 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
                           domain_bw_factor = domain_bw_factor,
                           domain_kernel_type= domain_kernel_type,
                           emp_pdf= emp_pdf,
-                          domain_pdf= domain_pdf)  
+                          domain_pdf= domain_pdf,
+                          grid_points=grid_points)  
         super().fit()
 
     def eval(self, y: np.ndarray) -> np.ndarray:

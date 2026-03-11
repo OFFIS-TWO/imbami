@@ -120,7 +120,9 @@ class EmpiricalDomainRelevanceFunctionBase(RelevanceFunctionBase, ABC):
             domain_bw_type: None | str = 'uniform',
             domain_bw_factor: None | float = 1.0,
             domain_kernel_type: None | str = 'gaussian',
-            domain_pdf: None | Callable = None) -> None:
+            domain_pdf: None | Callable = None,
+            
+            grid_points: int = 2**12) -> None:
         """
         Fit density estimators to empirical and domain data.
 
@@ -164,7 +166,7 @@ class EmpiricalDomainRelevanceFunctionBase(RelevanceFunctionBase, ABC):
                                                 bw_type= self.emp_bw_type,
                                                 bw_factor= emp_bw_factor,
                                                 kernel_type= self.emp_kernel_type)
-                self.emp_grid_x, self.emp_grid_y = self.emp_kernel.evaluate(2**12) # 2^12 = 4096 grid points
+                self.emp_grid_x, self.emp_grid_y = self.emp_kernel.evaluate(grid_points=grid_points) # 2^12 = 4096 grid points
             case 'provide_pdf':
                 if emp_pdf is None:
                     raise ValueError("emp_pdf is None. It must be provided if empirical density mode is set to 'provide_pdf'.")

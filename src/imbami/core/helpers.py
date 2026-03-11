@@ -28,16 +28,16 @@ class Uniform_kernel:
     def __call__(self, y: np.ndarray) -> np.ndarray:
         return np.full(shape = y.shape, fill_value = self.rel)
     
-    def evaluate(self, grid_size: int) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(self, grid_points: int) -> tuple[np.ndarray, np.ndarray]:
         """
         Evaluate the uniform kernel on a grid.
         
         Parameters:
-            grid_size (int): Number of points in the evaluation grid.
+            grid_points (int): Number of points in the evaluation grid.
             
         Returns:
             tuple[np.ndarray, np.ndarray]: Grid points and corresponding density values.
         """
-        grid_x = np.linspace(start=self.data_min, stop=self.data_max, num=grid_size)
+        grid_x = np.linspace(start=self.data_min, stop=self.data_max, num=grid_points)
         grid_y = self.__call__(grid_x)
         return grid_x, grid_y
