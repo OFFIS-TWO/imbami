@@ -16,7 +16,7 @@ SAMPLING_METHODS = {
     }
 
 def sampling_factory(
-                sampler_type: Literal["crbsmogn", "csmogn", "wercs"],
+                sampler_type: Literal["crbsmogn", "csmogn", "wercs", "smogn", "wsmoter"],
                 data: pd.DataFrame,
                 target_column: str | None,
                 relevance_values: pd.Series,

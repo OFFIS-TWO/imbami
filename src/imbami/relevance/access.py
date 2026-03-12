@@ -22,7 +22,7 @@ RELEVANCE_FUNCTIONS = {
 
 
 def relevance_function_factory(
-    relevance_type: Literal["density_distance", "density_ratio", "histogram", "interpolation", "kdr", "lds"],
+    relevance_type: Literal["density_distance", "density_ratio", "histogram", "interpolation", "kdr", "lds", "denseweight"],
     **kwargs
 ) -> RelevanceFunctionBase:
     """
