@@ -16,7 +16,7 @@ RELEVANCE_FUNCTIONS = {
     "interpolation": InterpolationWithControlPoints,
     "kdr": KernelDensityRelevance,
     "lds": LabelDistributionSmoothing,
-    "densweight": DenseWeight
+    "denseweight": DenseWeight
 }
 
 
