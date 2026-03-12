@@ -161,7 +161,8 @@ class cSMOGN(EmpiricalDomainMitigationMethodBase):
 
         # Postprocessing. Back to Pandas.
         oversampled_data = pd.DataFrame(data = oversampled_data, columns= self.data.columns, index= range(self.data.index.max(), self.data.index.max() + oversampled_data.shape[0]))
-        oversampled_data = oversampled_data.astype(self.data.dtypes)
+        for col in self.data.columns:
+            oversampled_data[col] = oversampled_data[col].astype(self.data[col].dtype)
         
         self.num_undersampled_samples = 0
         if enable_undersampling:

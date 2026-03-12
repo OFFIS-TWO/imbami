@@ -98,7 +98,8 @@ class WERCS(SamplingMethodBase):
             columns=self.data.columns,
             index=range(self.data.index.max() + 1, self.data.index.max() + 1 + oversampled_data.shape[0])
         )
-        oversampled_data = oversampled_data.astype(self.data.dtypes)
+        for col in self.data.columns:
+            oversampled_data[col] = oversampled_data[col].astype(self.data[col].dtype)
 
         # Undersampling
         if enable_undersampling:
