@@ -4,13 +4,15 @@ from .sampling.crbsmogn import apply_crbsmogn
 from .sampling.csmogn import apply_csmogn
 from .sampling.wercs import apply_wercs
 from .sampling.smogn import apply_smogn
+from .sampling.wsmoter import apply_wsmoter
 from ..utils.validation import extract_explicit_parameters
 
 SAMPLING_METHODS = {
         "crbsmogn": apply_crbsmogn,
         "csmogn": apply_csmogn,
         "wercs": apply_wercs,
-        "smogn": apply_smogn
+        "smogn": apply_smogn,
+        "wsmoter": apply_wsmoter
     }
 
 def sampling_factory(

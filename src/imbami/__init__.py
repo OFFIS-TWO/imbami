@@ -1,4 +1,4 @@
-from .mitigation import cSMOGN, crbSMOGN, WERCS, apply_csmogn, apply_crbsmogn, apply_wercs, sampling_factory, SAMPLING_METHODS
+from .mitigation import cSMOGN, crbSMOGN, WERCS, SMOGN, WSMOTER, apply_crbsmogn, apply_wercs, apply_csmogn, apply_smogn, apply_wsmoter, sampling_factory, SAMPLING_METHODS
 from .relevance import DensityRatioRelevance, DensityDistanceRelevance, HistogramBasedRelevance
 from .relevance import InterpolationWithControlPoints, LabelDistributionSmoothing, KernelDensityRelevance, relevance_function_factory, RELEVANCE_FUNCTIONS
 from denseweight import DenseWeight
@@ -11,6 +11,10 @@ __all__ = ["cSMOGN",
            "apply_crbsmogn",
            "WERCS",
            "apply_wercs",
+           "SMOGN",
+           "apply_smogn",
+           "WSMOTER",
+           "apply_wsmoter",
            
            "sampling_factory",
            "SAMPLING_METHODS",
