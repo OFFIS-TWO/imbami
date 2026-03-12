@@ -255,7 +255,7 @@ class cSMOGN(EmpiricalDomainMitigationMethodBase):
                                                                     n_samples= 1,
                                                                     numerical_mask= self.numerical_mask,
                                                                     categorical_mask=self.categorical_mask,
-                                                                    rng=rng                                                                    )
+                                                                    rng=rng)
             interpolated = False
  
         return new_sample, interpolated

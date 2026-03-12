@@ -44,8 +44,8 @@ class WERCS(SamplingMethodBase):
             raise ValueError(f"Sample weights contain values out of bounds [0, 1]:\n{out_of_bounds}")
 
     def run_sampling(self,
-                    oversampling_rate: float = 0.5,
-                    undersampling_rate: float = 0.5,
+                    oversample_rate: float = 0.5,
+                    undersample_rate: float = 0.5,
                     enable_undersampling: bool = True,
                     random_state: int|None = 0) -> pd.DataFrame:
         """
@@ -53,9 +53,9 @@ class WERCS(SamplingMethodBase):
 
         Parameters
         ----------
-        oversampling_rate : float, optional
+        oversample_rate : float, optional
             Fraction of dataset size to generate via oversampling. Default is 0.5.
-        undersampling_rate : float, optional
+        undersample_rate : float, optional
             Fraction of dataset size to remove via undersampling. Default is 0.5.
         enable_undersampling : bool, optional
             If True, perform undersampling. Default is True.
@@ -78,7 +78,7 @@ class WERCS(SamplingMethodBase):
         weights = self.relevance_values.to_numpy()
 
         # Oversampling
-        n_oversample = int(data_numpy.shape[0] * oversampling_rate)
+        n_oversample = int(data_numpy.shape[0] * oversample_rate)
         oversampled_data = np.zeros((n_oversample, data_numpy.shape[1]))
         num_oversampled_samples = 0
 
@@ -102,7 +102,7 @@ class WERCS(SamplingMethodBase):
 
         # Undersampling
         if enable_undersampling:
-            n_undersample = int(data_numpy.shape[0] * undersampling_rate)
+            n_undersample = int(data_numpy.shape[0] * undersample_rate)
             num_undersampled_samples = 0
             undersample_indice = -np.ones(n_undersample, dtype=int)
 
@@ -129,8 +129,8 @@ def apply_wercs(data: pd.DataFrame,
                 target_column: str,
                relevance_values: pd.Series,
                enable_undersampling: bool = True,
-               oversampling_rate: float = 0.5,
-               undersampling_rate: float = 0.5,
+               oversample_rate: float = 0.5,
+               undersample_rate: float = 0.5,
                random_state: int|None = 0) -> pd.DataFrame:
     """
     Apply the WERCS (WEighted Relevance-based Combination Strategy) sampling technique
@@ -149,9 +149,9 @@ def apply_wercs(data: pd.DataFrame,
         with lower weights are more likely to be removed.
     enable_undersampling : bool, optional
         If True, applies undersampling to remove low-relevance samples. Default is True.
-    oversampling_rate : float, optional
+    oversample_rate : float, optional
         Proportion of the original dataset size to generate via oversampling. Default is 0.5.
-    undersampling_rate : float, optional
+    undersample_rate : float, optional
         Proportion of the original dataset size to remove via undersampling. Default is 0.5.
     random_state : int | None, optional
         Random seed for reproducibility. Default is 0.
@@ -172,8 +172,8 @@ def apply_wercs(data: pd.DataFrame,
     logging.debug('Begin WERCS...')
     sampler = WERCS(data=data,
                    relevance_values=relevance_values, target_column=target_column)
-    new_data = sampler.run_sampling(oversampling_rate=oversampling_rate,
-                                   undersampling_rate=undersampling_rate,
+    new_data = sampler.run_sampling(oversample_rate=oversample_rate,
+                                   undersample_rate=undersample_rate,
                                    enable_undersampling=enable_undersampling,
                                    random_state= random_state)
     logging.debug('Finished WERCS...')
