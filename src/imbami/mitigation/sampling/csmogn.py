@@ -54,17 +54,13 @@ class cSMOGN(EmpiricalDomainMitigationMethodBase):
             Name of the target variable.
         relevance_values : pd.Series
             Series containing the respective relevance values for each row in `data`.
-            Must be in range [0, 1].
+            Must be in range [0, 1]. Otherwise it normalized.
 
-        Raises
-        ------
-        ValueError
-            If relevance_values contains values outside the [0, 1] range.
         """
         super().__init__(data, target_column, relevance_values)
         if not ((relevance_values >= 0) & (relevance_values <= 1)).all():
-            out_of_bounds = relevance_values[(relevance_values < 0) | (relevance_values > 1)]
-            raise ValueError(f"Relevance contains values out of bounds [0, 1]:\n{out_of_bounds}")
+            # Normalize sample relevance
+            self.relevance_values = self._normalize_with_clipping(self.relevance_values)
 
     def run_sampling(self,
                     oversample_rate: float = 0.5,

@@ -50,10 +50,10 @@ class WSMOTER(SamplingMethodBase):
         """
         super().__init__(data=data, target_column= target_column, relevance_values=relevance_values)
 
-        # Validate sample weights
+        # Validate relevance
         if not ((relevance_values >= 0) & (relevance_values <= 1)).all():
-            out_of_bounds = relevance_values[(relevance_values < 0) | (relevance_values > 1)]
-            raise ValueError(f"Sample weights contain values out of bounds [0, 1]:\n{out_of_bounds}")
+            # Normalize sample relevance
+            self.relevance_values = self._normalize_with_clipping(self.relevance_values)
         
         # Sort data and relevance
         self.data = self.data.sort_values(by=target_column, ascending=True)
@@ -97,16 +97,15 @@ class WSMOTER(SamplingMethodBase):
             raise ValueError(f"{knns=} has to smaller than {k_position_shifts=}.")
 
         rng = self._get_random_generator(random_state)
-        self.relevance_values_numpy = self.relevance_values.to_numpy()
         self.data_numpy = self.data.to_numpy()
         self.feature_ranges = self.data_numpy.max(axis = 0) - self.data_numpy.min(axis = 0)
         self.categorical_mask = np.array([True if col in self.categorical_columns else False for col in self.data.columns])
         self.numerical_mask = ~self.categorical_mask
 
-        # weights: pd.Series = self.relevance_values/self.relevance_values.sum() # Why do this? Kind of useless.
+        weights: pd.Series = self.relevance_values/self.relevance_values.sum() # Why do this? Kind of useless.
 
-        max_weight = self.relevance_values_numpy.max()
-        min_weight = self.relevance_values_numpy.min()
+        max_weight = weights.max()
+        min_weight = weights.min()
         target_median = self.data[self.target_column].median()
 
         total_oversample_count = int(self.data_numpy.shape[0]*oversample_rate)
@@ -117,8 +116,8 @@ class WSMOTER(SamplingMethodBase):
         self.num_oversampled_samples = 0
         max_idx = self.data_numpy.shape[0]
         while self.num_oversampled_samples < total_oversample_count:
-            random_index = int(rng.integers(0, self.relevance_values_numpy.shape[0]))
-            sample_weight = self.relevance_values_numpy[random_index]
+            random_index = int(rng.integers(0, weights.shape[0]))
+            sample_weight = weights[random_index]
    
             if sample_weight > rng.uniform(low=min_weight, high=max_weight):
                 # rare samples have a high weight, thus over-sample whenever larger then random

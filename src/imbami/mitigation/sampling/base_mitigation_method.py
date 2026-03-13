@@ -35,6 +35,8 @@ class SamplingMethodBase(ABC):
         Abstract method to be implemented by subclasses for performing the sampling.
     _get_random_generator(random_state: int|None) -> np.random.Generator:
         Utility method to create a random number generator with optional seed.
+    _normalize_with_clipping(self, y: "np.ndarray | pd.Series") -> "np.ndarray | pd.Series":
+        Utility method to normalize relevance values between 1e-6 and 1.
     """
     def __init__(self, data: pd.DataFrame, target_column: str, relevance_values: pd.Series) -> None:
         """
@@ -99,6 +101,13 @@ class SamplingMethodBase(ABC):
         return rng
 
 
+    def _normalize_with_clipping(self, y: pd.Series) -> pd.Series:
+        """
+        Normalize the input series to [1e-6, 1].
+        """
+        norm = (y - y.min()) / (y.max() - y.min())
+        norm = np.clip(norm, 1e-6, None)
+        return pd.Series(norm, index=y.index)
 
 
 class EmpiricalDomainMitigationMethodBase(SamplingMethodBase):

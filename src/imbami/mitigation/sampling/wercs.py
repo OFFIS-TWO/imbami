@@ -38,10 +38,10 @@ class WERCS(SamplingMethodBase):
         """
         super().__init__(data=data, target_column= target_column, relevance_values=relevance_values)
 
-        # Validate sample weights
+        # Validate sample relevance
         if not ((relevance_values >= 0) & (relevance_values <= 1)).all():
-            out_of_bounds = relevance_values[(relevance_values < 0) | (relevance_values > 1)]
-            raise ValueError(f"Sample weights contain values out of bounds [0, 1]:\n{out_of_bounds}")
+            # Normalize sample relevance
+            self.relevance_values = self._normalize_with_clipping(self.relevance_values)
 
     def run_sampling(self,
                     oversample_rate: float = 0.5,

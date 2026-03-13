@@ -35,15 +35,15 @@ class SMOGN(SamplingMethodBase):
         target_column : str
             Name of the target column in the dataset.
         relevance_values : pd.Series
-            Relevance values for each sample in the dataset, ranging from 0 to 1.
+            Relevance values for each sample in the dataset, ranging from 0 to 1. (otherwise are normalized)
             Higher values indicate more relevant/rare samples that should be oversampled.
         """
         super().__init__(data=data, target_column= target_column, relevance_values=relevance_values)
 
-        # Validate sample weights
+        # Validate sample relevance
         if not ((relevance_values >= 0) & (relevance_values <= 1)).all():
-            out_of_bounds = relevance_values[(relevance_values < 0) | (relevance_values > 1)]
-            raise ValueError(f"Sample weights contain values out of bounds [0, 1]:\n{out_of_bounds}")
+            # Normalize sample relevance
+            self.relevance_values = self._normalize_with_clipping(self.relevance_values)
         
         # Sort data and relevance
         self.data = self.data.sort_values(by=target_column, ascending=True)

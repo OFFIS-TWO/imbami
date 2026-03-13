@@ -1,6 +1,7 @@
 from .base_relevance_function import RelevanceFunctionBase
 import numpy as np
 from denseweight import DenseWeight as DenseWeight_og
+from typing import Union
 
 
 class DenseWeight(RelevanceFunctionBase):
@@ -37,7 +38,7 @@ class DenseWeight(RelevanceFunctionBase):
     eval(y)
         Evaluate the relevance values for the given data points.
     """
-    def __init__(self, alpha, bandwidth, eps) -> None:
+    def __init__(self, alpha: float = 1, bandwidth: Union[float, str, None] = None, eps: float = 1e-6) -> None:
         super().__init__()
         self.type = "DenseWeight"
         self.relevance_function = DenseWeight_og(alpha=alpha, bandwidth=bandwidth, eps=eps)
