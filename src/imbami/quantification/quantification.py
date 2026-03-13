@@ -1,64 +1,112 @@
 import pandas as pd
 import numpy as np
 from typing import Callable
+from typing import Literal
 
-from .imbalance import imbalance_ratio, probability_ratio
+from .imbalance import imbalance_ratio, get_density_ratio_lambda
 
 
 def imbalanced_sample_percentage(
-    data: pd.Series | pd.DataFrame,
-    relevance_pdf: Callable  | list[Callable] | None = None,
-    discrete: bool | list[bool] = False,
-    drop_inf_nan: bool = True,  
-    ir_bound: None| float = None,
-    lower_bound: None| float = None,
-    upper_bound: None| float = None,
-    kde_bandwidth: str | float = 'silverman',
-    kde_kernel: str = 'gaussian',
-    kde_grid_points: int = 2**14) -> float:
+        emp_density_mode: Literal['fit_kde', 'provide_pdf'],
+        domain_density_mode: Literal['fit_kde', 'provide_pdf'],
+        data: pd.Series,
+        emp_bw_type: None | str = 'silverman',
+        emp_bw_factor: None | float = 1.0,
+        emp_kernel_type: None | str = 'gaussian',
+        emp_pdf: None | Callable = None,
+
+        domain_data: None | np.ndarray | pd.Series = None,
+        domain_bw_type: None | str = 'uniform',
+        domain_bw_factor: None | float = 1.0,
+        domain_kernel_type: None | str = 'gaussian',
+        domain_pdf: None | Callable = None,
+        
+        grid_points: int = 4096,
+        ir_bound: None| float = None,
+        lower_bound: None| float = None,
+        upper_bound: None| float = None) -> float:
+
+
     """
-    Calculates the percentage of imbalanced samples based on the provided criteria.
-    The criteria are either
-    - ir_bound: According to Equation (4) in the article. All samples are considered to be imbalanced whos Imbalance Ratio is higher than the provided threshold. The minimum achievable Imbalance ratio is 1,
-                which indicates no imbalance to be present. An ir_bound of 2 indicates that only samples are counted which occure twice or half as often as the provided relevance_pdf (Uniform if relevance_pdf=None).
-    - lower_bound/upper_bound: According to Equation (3) in the article. All samples are considered imbalanced whos probability ratio is smaller/higher then the provided bound. If both bounds are provided the
-                the imbalanced sample percentages are summed.
+    Calculate percentage of imbalanced samples in a dataset.
 
-    The Imbalance ratio is the absolute magnitude of the probability ratio lambda. IR = exp(abs(log(lambda(x)))).
-    Thus ir_bound = 2 equals the combined behaviour of lower_bound = 0.5 and upper_bound = 2.
+    Computes the percentage of samples that are considered imbalanced based on
+    either a direct density ratio threshold or an imbalance ratio threshold.
 
-    Args:
-    - data (pd.Series | pd.DataFrame): Input data for which to compute the probability ratio.
-    - relevance_pdf (Callable | list[Callable] | None, optional): Probability density function(s) for relevance probability.
-      - If a Series is passed to `data`, `relevance_pdf` should be a single callable function.
-      - If a DataFrame is passed to `data`, `relevance_pdf` should be a list of callable functions with one function per column in data.
-      - It is assumed that each callable function returns a value of type float.
-      - If None, default functions will be used for relevance probability, which assumes uniform distribution of the relevance.
-    - discrete (bool | list[bool], optional): Indicates if the data is discrete.
-      - If a Series is passed to `data`, `discrete` should be a single boolean value.
-      - If a DataFrame is passed to `data`, `discrete` should be a list of boolean values with one value per column.
-    - drop_inf_nan (bool, optional): Whether to drop infinite and NaN values from `data` before computation.
-      Default is True.
-    - ir_bound: Imbalance ratio threshold for considering samples imbalanced. If defined, excludes lower_bound and upper_bound.
-    - lower_bound: Lower threshold for probability ratio lamb.
-    - upper_bound: Upper threshold for probability ratio lamb.
-    - kde_bandwidth (str | float): Bandwidth for KDE. Default is 'silverman'.
-    - kde_kernel (str): Kernel type for KDE. Default is 'gaussian'.
-    - kde_grid_points (int): Number of points in the KDE evaluation grid. Default is 2^14.
+    Parameters
+    ----------
+    emp_density_mode : {'fit_kde', 'provide_pdf'}
+        Method for empirical density estimation.
+    domain_density_mode : {'fit_kde', 'provide_pdf'}
+        Method for domain density estimation.
+    data : pd.Series
+        Target values for which to calculate imbalance percentage.
+    emp_bw_type : str or None, default='silverman'
+        Bandwidth selection method for empirical KDE.
+    emp_bw_factor : float or None, default=1.0
+        Scaling factor for empirical KDE bandwidth.
+    emp_kernel_type : str or None, default='gaussian'
+        Kernel type for empirical KDE.
+    emp_pdf : callable or None, default=None
+        Callable PDF for empirical distribution.
+    domain_data : np.ndarray, pd.Series, or None, default=None
+        Domain data samples.
+    domain_bw_type : str or None, default='uniform'
+        Bandwidth selection method for domain KDE.
+    domain_bw_factor : float or None, default=1.0
+        Scaling factor for domain KDE bandwidth.
+    domain_kernel_type : str or None, default='gaussian'
+        Kernel type for domain KDE.
+    domain_pdf : callable or None, default=None
+        Callable PDF for domain distribution.
+    grid_points : int, default=4096
+        Number of points in the evaluation grid for KDE.
+    ir_bound : float or None, default=None
+        Imbalance ratio threshold. If provided, samples with IR > ir_bound are considered imbalanced.
+    lower_bound : float or None, default=None
+        Lower density ratio threshold. Samples with density ratio < lower_bound are considered imbalanced.
+    upper_bound : float or None, default=None
+        Upper density ratio threshold. Samples with density ratio > upper_bound are considered imbalanced.
 
-    Returns:
-    - (float): Percentage of imbalanced samples based on the given criteria.
+    Returns
+    -------
+    float
+        Percentage of samples in the dataset that are considered imbalanced.
+
+
+    Notes
+    -----
+    Exactly one of ir_bound, lower_bound, or upper_bound must be provided.
+    When domain_bw_type is 'uniform', domain_data is not required.
     """
-    if not isinstance(data, (pd.Series, pd.DataFrame)):
-        raise TypeError("The argument 'data' is not of type pd.Series or pd.DataFame.")
+
+    if not isinstance(data, pd.Series):
+        raise TypeError("The argument 'data' is not of type pd.Series.")
     if ir_bound is None and lower_bound is None and upper_bound is None:
         raise ValueError("At least one of ir_bound, lower_bound, or upper_bound must be provided.")
     if ir_bound is not None and (lower_bound is not None or upper_bound is not None):
         raise ValueError("lower_bound and upper_bound must be None if ir_bound is defined.")
+    if domain_density_mode== 'fit_kde':
+        if domain_data is None and domain_bw_type == 'uniform':
+            domain_data = data
 
+    if isinstance(domain_data, pd.Series):
+        domain_data = domain_data.to_numpy()
 
-    lamb = probability_ratio(data, relevance_pdf, discrete, drop_inf_nan,
-                            kde_bandwidth, kde_kernel, kde_grid_points)
+    lamb = get_density_ratio_lambda(emp_density_mode=emp_density_mode,
+                                domain_density_mode= domain_density_mode,
+                                data= data.to_numpy(), 
+                                emp_bw_type = emp_bw_type, 
+                                emp_bw_factor= emp_bw_factor,
+                                emp_kernel_type = emp_kernel_type,
+                                domain_data = domain_data, 
+                                domain_bw_type = domain_bw_type, 
+                                domain_bw_factor = domain_bw_factor,
+                                domain_kernel_type= domain_kernel_type,
+                                emp_pdf= emp_pdf,
+                                domain_pdf= domain_pdf,
+                                grid_points=grid_points)
+    lamb = pd.Series(lamb, index= data.index)
     if ir_bound is None:
         isp_l = 0.0
         isp_u = 0.0
@@ -77,38 +125,92 @@ def imbalanced_sample_percentage(
 
 
 def mean_imbalance_ratio(
-    data: pd.Series | pd.DataFrame,
-    relevance_pdf: Callable  | list[Callable] | None = None,
-    discrete: bool | list[bool] = False,
-    drop_inf_nan: bool = True,
-    kde_bandwidth: str | float = 'silverman',
-    kde_kernel: str = 'gaussian',
-    kde_grid_points: int = 2**14) -> float:
-    '''
-    Computes the mean imbalance ratio (mIR) for given data using empirical and relevance probabilities (According to Equation (5) in the article).
-    Args:
-    - data (pd.Series | pd.DataFrame): Input data for which to compute the probability ratio.
-    - relevance_pdf (Callable | list[Callable] | None, optional): Probability density function(s) for relevance probability.
-      - If a Series is passed to `data`, `relevance_pdf` should be a single callable function.
-      - If a DataFrame is passed to `data`, `relevance_pdf` should be a list of callable functions with one function per column in data.
-      - It is assumed that each callable function returns a value of type float.
-      - If None, default functions will be used for relevance probability, which assumes uniform distribution of the relevance.
-    - discrete (bool | list[bool], optional): Indicates if the data is discrete.
-      - If a Series is passed to `data`, `discrete` should be a single boolean value.
-      - If a DataFrame is passed to `data`, `discrete` should be a list of boolean values with one value per column.
-    - drop_inf_nan (bool, optional): Whether to drop infinite and NaN values from `data` before computation.
-      Default is True.
-    - kde_bandwidth (str | float): Bandwidth for KDE. Default is 'silverman'.
-    - kde_kernel (str): Kernel type for KDE. Default is 'gaussian'.
-    - kde_grid_points (int): Number of points in the KDE evaluation grid. Default is 2^14.
-    
-    Returns:
-    - (float): The mean imbalance ratio mIR) for the input data.
-    '''
-    if not isinstance(data, (pd.Series, pd.DataFrame)):
-        raise TypeError("The argument 'data' is not of type pd.Series or pd.DataFame.")
-    lamb = probability_ratio(data, relevance_pdf, discrete, drop_inf_nan,
-                            kde_bandwidth, kde_kernel, kde_grid_points)
+        data: pd.Series,
+        emp_density_mode: Literal['fit_kde', 'provide_pdf'] ='fit_kde',
+        domain_density_mode: Literal['fit_kde', 'provide_pdf']= 'fit_kde',
+        emp_bw_type: None | str = 'silverman',
+        emp_bw_factor: None | float = 1.0,
+        emp_kernel_type: None | str = 'gaussian',
+        emp_pdf: None | Callable = None,
+        domain_data: None | np.ndarray | pd.Series = None,
+        domain_bw_type: None | str = 'uniform',
+        domain_bw_factor: None | float = 1.0,
+        domain_kernel_type: None | str = 'gaussian',
+        domain_pdf: None | Callable = None,
+        grid_points: int = 4096,) -> float:
+    """
+    Calculate mean imbalance ratio (MIR) for a dataset.
+
+    Computes the average imbalance ratio across all samples in the dataset,
+    where imbalance ratio is defined as exp(|log(density_ratio)|).
+
+    Parameters
+    ----------
+    data : pd.Series
+        Target values for which to calculate mean imbalance ratio.
+    emp_density_mode : {'fit_kde', 'provide_pdf'}, default='fit_kde'
+        Method for empirical density estimation.
+    domain_density_mode : {'fit_kde', 'provide_pdf'}, default='fit_kde'
+        Method for domain density estimation.
+    emp_bw_type : str or None, default='silverman'
+        Bandwidth selection method for empirical KDE.
+    emp_bw_factor : float or None, default=1.0
+        Scaling factor for empirical KDE bandwidth.
+    emp_kernel_type : str or None, default='gaussian'
+        Kernel type for empirical KDE.
+    emp_pdf : callable or None, default=None
+        Callable PDF for empirical distribution.
+    domain_data : np.ndarray, pd.Series, or None, default=None
+        Domain data samples.
+    domain_bw_type : str or None, default='uniform'
+        Bandwidth selection method for domain KDE.
+    domain_bw_factor : float or None, default=1.0
+        Scaling factor for domain KDE bandwidth.
+    domain_kernel_type : str or None, default='gaussian'
+        Kernel type for domain KDE.
+    domain_pdf : callable or None, default=None
+        Callable PDF for domain distribution.
+    grid_points : int, default=4096
+        Number of points in the evaluation grid for KDE.
+
+    Returns
+    -------
+    float
+        Mean imbalance ratio across all samples in the dataset.
+
+    Raises
+    ------
+    TypeError
+        If data is not a pandas Series.
+
+    Notes
+    -----
+    When domain_bw_type is 'uniform', domain_data is not required as a uniform
+    distribution will be used for the domain density.
+    """
+
+    if not isinstance(data, pd.Series):
+        raise TypeError("The argument 'data' is not of type pd.Series.")
+    if domain_density_mode== 'fit_kde':
+        if domain_data is None and domain_bw_type == 'uniform':
+            domain_data = data
+    if isinstance(domain_data, pd.Series):
+        domain_data = domain_data.to_numpy()
+
+    lamb = get_density_ratio_lambda(emp_density_mode=emp_density_mode,
+                                domain_density_mode= domain_density_mode,
+                                data= data.to_numpy(), 
+                                emp_bw_type = emp_bw_type, 
+                                emp_bw_factor= emp_bw_factor,
+                                emp_kernel_type = emp_kernel_type,
+                                domain_data = domain_data, 
+                                domain_bw_type = domain_bw_type, 
+                                domain_bw_factor = domain_bw_factor,
+                                domain_kernel_type= domain_kernel_type,
+                                emp_pdf= emp_pdf,
+                                domain_pdf= domain_pdf,
+                                grid_points=grid_points)
+    lamb = pd.Series(lamb, index= data.index)
     ir = imbalance_ratio(lamb)
     mir = float(np.mean(ir))
     return mir

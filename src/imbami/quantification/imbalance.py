@@ -1,63 +1,89 @@
 import numpy as np
 from typing import Callable
 import pandas as pd
+from typing import Literal
+from imbami import DensityRatioRelevance
 
-from imbami.core.density_estimation import get_densities
-from .helpers import drop_inf_and_nan
+def get_density_ratio_lambda(
+            emp_density_mode: Literal['fit_kde', 'provide_pdf'],
+            domain_density_mode: Literal['fit_kde', 'provide_pdf'],
+            data: np.ndarray,
+            emp_bw_type: None | str = 'silverman',
+            emp_bw_factor: None | float = 1.0,
+            emp_kernel_type: None | str = 'gaussian',
+            emp_pdf: None | Callable = None,
 
-
-def probability_ratio(data: pd.Series | pd.DataFrame,
-                     relevance_pdf: Callable | list[Callable] | None = None,
-                     discrete: bool | list[bool] = False,
-                     drop_inf_nan: bool = True,
-                     kde_bandwidth: str | float = 'silverman',
-                     kde_kernel: str = 'gaussian',
-                     kde_grid_points: int = 2**14) -> pd.Series:
-
+            domain_data: None | np.ndarray = None,
+            domain_bw_type: None | str = 'uniform',
+            domain_bw_factor: None | float = 1.0,
+            domain_kernel_type: None | str = 'gaussian',
+            domain_pdf: None | Callable = None,
+            
+            grid_points: int = 4096) -> np.ndarray:
+    
     """
-    Computes the probability ratio for given data using empirical and relevance probabilities.
+    Calculate density ratio (Lambda) between empirical and domain distributions.
 
-    Parameters:
-    - data (pd.Series | pd.DataFrame): Input data for which to compute the probability ratio.
-    - relevance_pdf (Callable | list[Callable] | None, optional): Probability density function(s) for relevance probability.
-      - If a Series is passed to `data`, `relevance_pdf` should be a single callable function.
-      - If a DataFrame is passed to `data`, `relevance_pdf` should be a list of callable functions with one function per column in data.
-      - It is assumed that each callable function returns a value of type float.
-      - If None, default functions will be used for relevance probability, which assumes uniform distribution of the relevance.
-    - discrete (bool | list[bool], optional): Indicates if the data is discrete.
-      - If a Series is passed to `data`, `discrete` should be a single boolean value.
-      - If a DataFrame is passed to `data`, `discrete` should be a list of boolean values with one value per column.
-    - drop_inf_nan (bool, optional): Whether to drop infinite and NaN values from `data` before computation.
-      Default is True.
-    - kde_bandwidth (str | float): Bandwidth for KDE. Default is 'silverman'.
-    - kde_kernel (str): Kernel type for KDE. Default is 'gaussian'.
-    - kde_grid_points (int): Number of points in the KDE evaluation grid. Default is 2^14.
+    Computes the density ratio (empirical density / domain density) for the input data
+    using either Kernel Density Estimation (KDE) or provided probability density functions.
 
-    Returns:
-    - pd.Series: The probability ratio for each element in the input data.
+    Parameters
+    ----------
+    emp_density_mode : {'fit_kde', 'provide_pdf'}
+        Method for empirical density estimation.
+    domain_density_mode : {'fit_kde', 'provide_pdf'}
+        Method for domain density estimation.
+    data : np.ndarray
+        Empirical data samples for which to calculate density ratios.
+    emp_bw_type : str or None, default='silverman'
+        Bandwidth selection method for empirical KDE ('silverman', 'ISJ', or 'uniform').
+    emp_bw_factor : float or None, default=1.0
+        Scaling factor for empirical KDE bandwidth.
+    emp_kernel_type : str or None, default='gaussian'
+        Kernel type for empirical KDE (e.g., 'gaussian').
+    emp_pdf : callable or None, default=None
+        Callable PDF for empirical distribution. Required if emp_density_mode is 'provide_pdf'.
+    domain_data : np.ndarray or None, default=None
+        Domain data samples. Required if domain_density_mode is 'fit_kde' and domain_bw_type is not 'uniform'.
+    domain_bw_type : str or None, default='uniform'
+        Bandwidth selection method for domain KDE ('silverman', 'ISJ', or 'uniform').
+    domain_bw_factor : float or None, default=1.0
+        Scaling factor for domain KDE bandwidth.
+    domain_kernel_type : str or None, default='gaussian'
+        Kernel type for domain KDE (e.g., 'gaussian').
+    domain_pdf : callable or None, default=None
+        Callable PDF for domain distribution. Required if domain_density_mode is 'provide_pdf'.
+    grid_points : int, default=4096
+        Number of points in the evaluation grid for KDE.
 
-    Notes:
-    - The function first cleans the data by dropping infinite and NaN values if `drop_inf_nan` is True.
-    - It calculates empirical probabilities and relevance probabilities for the given data.
-    - The final probability ratio is the division of empirical probabilities by relevance probabilities.
-    - For DataFrame input, the product of probabilities across columns is computed and then adjusted by the number of columns.
+    Returns
+    -------
+    np.ndarray
+        Density ratio (Lambda) values for each input data point.
+
+    Notes
+    -----
+    When domain_bw_type is 'uniform', domain_data is not required as a uniform
+    distribution will be used for the domain density.
     """
-    # convert/drop inf and nan values.
-    data = drop_inf_and_nan(data, drop_inf_nan)
-    # calculation for series
-    if isinstance(data, pd.Series):
-        prob_emp, prob_rel = get_densities(data, relevance_pdf, discrete,
-                                          kde_bandwidth, kde_kernel, kde_grid_points)
-        lamb = prob_emp.div(prob_rel)
 
-    else:
-        # calculation for Dataframe
-        prob_emp, prob_rel = get_densities(data, relevance_pdf, discrete,
-                                          kde_bandwidth, kde_kernel, kde_grid_points)
-        lamb = prob_emp.div(prob_rel)
-        lamb = lamb.pow(1/len(data.columns))
-
+    drr = DensityRatioRelevance(emp_density_mode=emp_density_mode,
+                                domain_density_mode= domain_density_mode)
+    
+    drr.fit(data= data, 
+            emp_bw_type = emp_bw_type, 
+            emp_bw_factor= emp_bw_factor,
+            emp_kernel_type = emp_kernel_type,
+            domain_data = domain_data, 
+            domain_bw_type = domain_bw_type, 
+            domain_bw_factor = domain_bw_factor,
+            domain_kernel_type= domain_kernel_type,
+            emp_pdf= emp_pdf,
+            domain_pdf= domain_pdf,
+            grid_points=grid_points)
+    lamb = drr._get_ratio(data)
     return lamb
+
 
 
 
