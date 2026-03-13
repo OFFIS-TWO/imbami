@@ -6,8 +6,8 @@ from .histogram_based_relevance import HistogramBasedRelevance
 from .interpolation_with_controlpoints import InterpolationWithControlPoints
 from .label_distribution_smoothing import LabelDistributionSmoothing
 from .kernel_density_relevance import KernelDensityRelevance
+from .denseweight import DenseWeight
 from ..utils.validation import extract_explicit_parameters
-from denseweight import DenseWeight
 
 RELEVANCE_FUNCTIONS = {
     "density_distance": DensityDistanceRelevance,
