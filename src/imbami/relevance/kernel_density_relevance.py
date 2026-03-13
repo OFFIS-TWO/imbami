@@ -1,6 +1,7 @@
 import logging
 import numpy as np
-from ..core.density_estimation import get_kernel, bisect_kde_score
+from ..core.density_estimation import get_kernel
+from ..core.helpers import bisect_kde_score
 from .base_relevance_function import RelevanceFunctionBase
 
 class KernelDensityRelevance(RelevanceFunctionBase):
