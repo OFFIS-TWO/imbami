@@ -77,7 +77,7 @@ class SMOGN(SamplingMethodBase):
             Scaling factor for Gaussian noise added to synthetic samples.
         oversample_rate : float, default=0.5
             Rate at which to oversample the rare cases (relevant samples above threshold).
-            For each sample, this determines how many synthetic samples to create.
+            e.g. 0.5 generates 50% more rare cases.
         undersample_rate : float, default=0.5
             Rate at which to undersample the common cases (relevant samples below threshold).
             This determines what fraction of the common samples to keep.
@@ -127,7 +127,8 @@ class SMOGN(SamplingMethodBase):
         # Oversampling
         oversampled_rows = []
         for part_indice in partition_indice_above:
-            n_create = int(np.ceil(len(part_indice) * oversample_rate))
+            # calculate number of samples to oversample
+            n_create = int(np.ceil(len(part_indice) * oversample_rate))                 
             partition_data = self.data_numpy[part_indice] # get rows of the full dataset that correspond to the indices in the partition.
             n_samples_partition = partition_data.shape[0]
             # compute distance matrix inside bump
@@ -145,38 +146,35 @@ class SMOGN(SamplingMethodBase):
             neighbor_indices = np.argsort(distance_matrix, axis=1)[:, 1:knns+1]
                      
             # main generation loop
-            for i in range(n_samples_partition):
-                rnd_selected_nns_indices = rng.choice(neighbor_indices[i], size=n_create, replace=True)
-                mask_below_maxDM = distance_matrix[i, rnd_selected_nns_indices] < maxDM[i] # Returns True if distance is < maxDM, else False
+            for i in range(n_create):
+                random_index = int(rng.integers(0, partition_data.shape[0]))
+                seed_sample = partition_data[random_index]
 
-                n_below_maxDM = np.sum(mask_below_maxDM)
-                n_above_maxDM = np.sum(~mask_below_maxDM)
 
-                seed_sample = partition_data[i]
+                rnd_selected_nn_idx = rng.choice(neighbor_indices[random_index])
+                distance = distance_matrix[random_index, rnd_selected_nn_idx]
 
-                if n_above_maxDM > 0:
+                if distance > maxDM[random_index]:
                 # Add gaussian Noise
                     new_samples = self._add_gaussian_noise(x=seed_sample,
                                                             standard_deviations= self.standard_deviations,
                                                             noise_factor= noise_factor,
-                                                            n_samples= n_above_maxDM,
+                                                            n_samples= 1,
                                                             numerical_mask= self.numerical_mask,
                                                             categorical_mask=self.categorical_mask,
                                                             rng=rng)
-                    oversampled_rows.append(new_samples) # new_samples shape(n_samples, n_features)
-                    self.num_gaussian_samples += n_above_maxDM
-                if n_below_maxDM > 0:
-                    indices_below_maxDM = rnd_selected_nns_indices[mask_below_maxDM]
-                    for idx in indices_below_maxDM:
-                        seed_sample2 = partition_data[idx]
-                        new_sample = self._interpolate_sample(x=seed_sample,
-                                                            y=seed_sample2,
-                                                            feature_ranges= self.feature_ranges,
-                                                            categorical_mask= self.categorical_mask,
-                                                            numerical_mask=self.numerical_mask,
-                                                            rng=rng)
-                        oversampled_rows.append(new_sample[None,:])
-                        self.num_interpolated_samples += 1
+                    oversampled_rows.append(new_samples)
+                    self.num_gaussian_samples += 1
+                else:
+                    seed_sample2 = partition_data[rnd_selected_nn_idx]
+                    new_sample = self._interpolate_sample(x=seed_sample,
+                                                        y=seed_sample2,
+                                                        feature_ranges= self.feature_ranges,
+                                                        categorical_mask= self.categorical_mask,
+                                                        numerical_mask=self.numerical_mask,
+                                                        rng=rng)
+                    oversampled_rows.append(new_sample)
+                    self.num_interpolated_samples += 1
 
 
         # Postprocessing: convert back to pandas DataFrame
@@ -192,17 +190,18 @@ class SMOGN(SamplingMethodBase):
 
         # Undersampling
         if enable_undersampling:
-            kept = [] # stores indices to keep
+            drop = [] # stores indices to keep
             for idx in partition_indice_below:
-                n_keep = int(np.ceil(len(idx) * undersample_rate))
+                n_drop = int(np.ceil(len(idx) * undersample_rate))
 
-                selected = rng.choice(idx, size=n_keep, replace=False)
-                kept.append(selected)
+                selected = rng.choice(idx, size=n_drop, replace=False)
+                drop.append(selected)
 
-            kept_indices = np.concatenate(kept)
-            kept_data_indices = self.data.iloc[kept_indices].index # transform from numpy indices to pandas
+            dropped_indices = np.concatenate(drop)
+            dropped_data_indices = self.data.iloc[dropped_indices].index # transform from numpy indices to pandas
 
-            undersampled_data = self.data.loc[kept_data_indices]
+            undersampled_data = self.data.drop(index=dropped_data_indices)
+
             new_data = pd.concat([undersampled_data, oversampled_data], axis=0)
         else:
             new_data = pd.concat([self.data, oversampled_data], axis=0)

@@ -102,7 +102,7 @@ class WSMOTER(SamplingMethodBase):
         self.categorical_mask = np.array([True if col in self.categorical_columns else False for col in self.data.columns])
         self.numerical_mask = ~self.categorical_mask
 
-        weights: pd.Series = self.relevance_values/self.relevance_values.sum() # Why do this? Kind of useless.
+        weights = np.array(self.relevance_values/self.relevance_values.sum()) # Why do this? Kind of useless. (but stated in the paper)
 
         max_weight = weights.max()
         min_weight = weights.min()
