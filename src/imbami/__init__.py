@@ -2,7 +2,7 @@ from .mitigation import cSMOGN, crbSMOGN, WERCS, SMOGN, WSMOTER, apply_crbsmogn,
 from .relevance import DensityRatioRelevance, DensityDistanceRelevance, HistogramBasedRelevance, DenseWeight
 from .relevance import InterpolationWithControlPoints, LabelDistributionSmoothing, KernelDensityRelevance, relevance_function_factory, RELEVANCE_FUNCTIONS
 from .quantification import mean_imbalance_ratio, imbalanced_sample_percentage
-from .metrics import bin_loss
+from .metrics import binned_loss
 
 __all__ = ["cSMOGN",
            "apply_csmogn",
@@ -32,5 +32,5 @@ __all__ = ["cSMOGN",
     "mean_imbalance_ratio",
     "imbalanced_sample_percentage",
 
-    "bin_loss"
+    "binned_loss"
 ]

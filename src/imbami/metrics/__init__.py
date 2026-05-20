@@ -1,3 +1,3 @@
-from .partitioned_loss import bin_loss
+from .partitioned_loss import binned_loss
 
-__all__ = ["bin_loss"]
+__all__ = ["binned_loss"]
