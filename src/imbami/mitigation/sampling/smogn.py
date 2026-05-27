@@ -187,7 +187,10 @@ class SMOGN(SamplingMethodBase):
 
 
         # Postprocessing: convert back to pandas DataFrame
-        oversampled_array = np.vstack(oversampled_rows)
+        if len(oversampled_rows) == 0: # this is the case if no relevance values were above the threshold -> no oversampling
+            oversampled_array = np.empty((0, self.data.shape[1]))
+        else:
+            oversampled_array = np.vstack(oversampled_rows)
         self.num_oversampled_samples = oversampled_array.shape[0]
         oversampled_data = pd.DataFrame(
             data=oversampled_array,
@@ -206,8 +209,11 @@ class SMOGN(SamplingMethodBase):
                 selected = rng.choice(idx, size=n_drop, replace=False)
                 drop.append(selected)
 
-            dropped_indices = np.concatenate(drop)
-            dropped_data_indices = self.data.iloc[dropped_indices].index # transform from numpy indices to pandas
+            if len(drop) == 0:
+                dropped_data_indices = pd.Index([])
+            else:
+                dropped_indices = np.concatenate(drop)
+                dropped_data_indices = self.data.iloc[dropped_indices].index # transform from numpy indices to pandas
 
             undersampled_data = self.data.drop(index=dropped_data_indices)
 
