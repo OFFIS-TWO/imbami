@@ -143,19 +143,28 @@ class SMOGN(SamplingMethodBase):
                 )
             maxDM = np.median(distance_matrix, axis=1) / 2 # array of maximum allowed distance per sample
             # nearest neighbors
-            neighbor_indices = np.argsort(distance_matrix, axis=1)[:, 1:knns+1]
+            effective_knns = min(knns, n_samples_partition - 1)
+            neighbor_indices = np.argsort(distance_matrix, axis=1)[:, 1:effective_knns+1]
                      
             # main generation loop
             for i in range(n_create):
                 random_index = int(rng.integers(0, partition_data.shape[0]))
                 seed_sample = partition_data[random_index]
 
+                use_gaussian_noise = False
 
-                rnd_selected_nn_idx = rng.choice(neighbor_indices[random_index])
-                distance = distance_matrix[random_index, rnd_selected_nn_idx]
+                if effective_knns == 0:
+                    use_gaussian_noise = True
+                    rnd_selected_nn_idx = None # just for the code analyser to show now warnings
+                else:
+                    rnd_selected_nn_idx = rng.choice(neighbor_indices[random_index])
+                    distance = distance_matrix[random_index, rnd_selected_nn_idx]
 
-                if distance > maxDM[random_index]:
+                    if distance > maxDM[random_index]:
+                        use_gaussian_noise = True
+
                 # Add gaussian Noise
+                if use_gaussian_noise:
                     new_samples = self._add_gaussian_noise(x=seed_sample,
                                                             standard_deviations= self.standard_deviations,
                                                             noise_factor= noise_factor,

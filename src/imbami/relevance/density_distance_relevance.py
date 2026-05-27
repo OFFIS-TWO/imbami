@@ -58,7 +58,7 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
         relevance scoring.
 
         Args:
-            - emp_data: Empirical data samples. Required if emp_density_mode is 'fit_kde'.
+            - data: Empirical data samples. Required if emp_density_mode is 'fit_kde'.
             - emp_bw_type: Bandwidth selection method for empirical KDE ('silverman', 'ISJ', or 'uniform').
             - emp_bw_factor: Scaling factor for empirical KDE bandwidth.
             - emp_kernel_type: Kernel type for empirical KDE (e.g., 'gaussian').
@@ -72,7 +72,7 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
 
         Note:
             When domain_bw_type is 'uniform', domain_data is not required as a uniform distribution
-            will be used for the domain density.
+            will be used for the domain density. Set domain_data = data.
         """
         self._fit_to_data(emp_data= data, 
                           emp_bw_type = emp_bw_type, 
