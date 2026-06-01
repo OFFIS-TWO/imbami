@@ -38,5 +38,5 @@ KDEpy=1.1.11
 Other versions may also work, but have not been tested.
 
 ## Usage
-For explanation see the [example notebook](explanatory_example.ipynb).
-And for a more advanced example see the [advanced example notebook](article_example.ipynb) covering one of the examples from the article.
+For explanation see the [example notebook](examples/explanatory_example.ipynb).
+And for a more advanced example see the [advanced example notebook](examples/article_example.ipynb) covering one of the examples from the article.
