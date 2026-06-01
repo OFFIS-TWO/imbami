@@ -7,7 +7,7 @@ name = "imbami"
 version = "0.2.0"
 description = "A python package for the mitigation of data imbalance. It includes implementation of density-distance relevance, density-ratio relevance, cSMOGN and crbSMOGN."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { file = "LICENSE.txt" }
 authors = [
     { name = "Jelke Wibbeke", email = "jelke.wibbeke@offis.de" }

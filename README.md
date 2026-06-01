@@ -29,13 +29,14 @@ pip install .
 ```
 The package was tested using:
 ```
-python=3.10.13
+python=3.12.8
 numpy=1.26.4
-pandas=2.1.4
+pandas=2.2.3
 KDEpy=1.1.11
 ```
 
 Other versions may also work, but have not been tested.
 
 ## Usage
-For explanation see the [example notebook](example.ipynb).
+For explanation see the [example notebook](explanatory_example.ipynb).
+And for a more advanced example see the [advanced example notebook](article_example.ipynb) covering one of the examples from the article.

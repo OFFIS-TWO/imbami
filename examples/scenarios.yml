@@ -1,0 +1,197 @@
+smogn_intpol:
+  relevance_config:
+    relevance_type: interpolation
+    method: auto
+    extrems: both
+    coef: 1.5
+    control_points:
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: smogn
+    enable_undersampling: false
+    oversample_rate: 2.0
+    undersample_rate: 0.5
+    noise_factor: 0.01
+    relevance_threshold: 0.8
+    knns: 5
+    random_state: 1
+smogn_intpol_u:
+  relevance_config:
+    relevance_type: interpolation
+    method: auto
+    extrems: both
+    coef: 1.5
+    control_points:
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: smogn
+    enable_undersampling: true
+    oversample_rate: 2.0
+    undersample_rate: 0.5
+    noise_factor: 0.01
+    relevance_threshold: 0.8
+    knns: 5
+    random_state: 1
+wercs_intpol:
+  relevance_config:
+    relevance_type: interpolation
+    method: auto
+    extrems: both
+    coef: 1.5
+    control_points:
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: wercs
+    enable_undersampling: false
+    oversample_rate: 0.5
+    undersample_rate: 0.5
+    random_state: 1
+wercs_intpol_u:
+  relevance_config:
+    relevance_type: interpolation
+    method: auto
+    extrems: both
+    coef: 1.5
+    control_points:
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: wercs
+    enable_undersampling: true
+    oversample_rate: 0.5
+    undersample_rate: 0.5
+    random_state: 1
+wsmoter_denseweight:
+  relevance_config:
+    relevance_type: denseweight
+    alpha: 1.0
+    bandwidth: silverman
+    eps: 1e-6
+    grid_points: 4096
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: wsmoter
+    oversample_rate: 0.5
+    knns: 5
+    k_position_shifts: 10
+    random_state: 1
+csmogn_ddr:
+  relevance_config:
+    relevance_type: density_distance
+    emp_density_mode: fit_kde
+    domain_density_mode: fit_kde
+    centered: true
+    emp_bw_type: silverman
+    emp_bw_factor: 1.0
+    emp_kernel_type: gaussian
+    emp_pdf:
+    domain_bw_type: uniform
+    domain_bw_factor: 1.0
+    domain_kernel_type:
+    domain_pdf:
+    grid_points: 4096
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: csmogn
+    enable_undersampling: false
+    oversample_rate: 0.5
+    undersample_rate: 0.5
+    num_bins: 10
+    allowed_bin_deviation: 1
+    noise_factor: 0.01
+    ignore_categorical_similarity: false
+    knns: 5
+    random_state: 1
+csmogn_ddr_u:
+  relevance_config:
+    relevance_type: density_distance
+    emp_density_mode: fit_kde
+    domain_density_mode: fit_kde
+    centered: true
+    emp_bw_type: silverman
+    emp_bw_factor: 1.0
+    emp_kernel_type: gaussian
+    emp_pdf:
+    domain_bw_type: uniform
+    domain_bw_factor: 1.0
+    domain_kernel_type:
+    domain_pdf:
+    grid_points: 4096
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: csmogn
+    enable_undersampling: true
+    oversample_rate: 0.5
+    undersample_rate: 0.5
+    num_bins: 10
+    allowed_bin_deviation: 1
+    noise_factor: 0.01
+    ignore_categorical_similarity: false
+    knns: 5
+    random_state: 1
+crbsmogn_drr:
+  relevance_config:
+    relevance_type: density_ratio
+    emp_density_mode: fit_kde
+    domain_density_mode: fit_kde
+    emp_bw_type: silverman
+    emp_bw_factor: 1.0
+    emp_kernel_type: gaussian
+    emp_pdf:
+    domain_bw_type: uniform
+    domain_bw_factor: 1.0
+    domain_kernel_type:
+    domain_pdf:
+    grid_points: 4096
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: crbsmogn
+    enable_undersampling: false
+    min_acceptable_relevance: 1.0
+    max_acceptable_relevance: 1.0
+    num_bins: 10
+    allowed_bin_deviation: 1
+    noise_factor: 0.01
+    ignore_categorical_similarity: false
+    random_state: 1
+crbsmogn_drr_u:
+  relevance_config:
+    relevance_type: density_ratio
+    emp_density_mode: fit_kde
+    domain_density_mode: fit_kde
+    emp_bw_type: silverman
+    emp_bw_factor: 1.0
+    emp_kernel_type: gaussian
+    emp_pdf:
+    domain_bw_type: uniform
+    domain_bw_factor: 1.0
+    domain_kernel_type:
+    domain_pdf:
+    grid_points: 4096
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: crbsmogn
+    enable_undersampling: true
+    min_acceptable_relevance: 1.0
+    max_acceptable_relevance: 1.0
+    num_bins: 10
+    allowed_bin_deviation: 1
+    noise_factor: 0.01
+    ignore_categorical_similarity: false
+    random_state: 1
+smogn_kdr:
+  relevance_config:
+    relevance_type: kdr
+    bandwidth_type: silverman
+    bandwidth_factor: 1.0
+    kernel_type: gaussian
+    grid_points: 4096
+  mitigation_config:
+    mitigation_method: sampling
+    sampler_type: smogn
+    enable_undersampling: false
+    oversample_rate: 2.0
+    undersample_rate: 0.5
+    noise_factor: 0.01
+    relevance_threshold: 0.8
+    knns: 5
+    random_state: 1

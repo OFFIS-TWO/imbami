@@ -64,8 +64,8 @@ class DensityRatioRelevance(EmpiricalDomainRelevanceFunctionBase):
             domain_pdf: Callable PDF for domain distribution. Required if domain_density_mode is 'provide_pdf'.
 
         Note:
-            When domain_bw_type is 'uniform', domain_data is not required as a uniform distribution
-            will be used for the domain density.
+            When domain_bw_type is 'uniform', domain_data is still required to determine upper and lower domain bounds. The distribution itself is not used.
+            Set domain_data = data.
         """
         self._fit_to_data(emp_data= data, 
                           emp_bw_type = emp_bw_type, 
