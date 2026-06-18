@@ -70,7 +70,6 @@ class crbSMOGN(EmpiricalDomainMitigationMethodBase):
             Name of the target variable.
         relevance_values : pd.Series
             Series containing the respective relevance values for each row in `data`.
-            Must be in range [0, 1].
         """
         super().__init__(data, target_column, relevance_values)
         
