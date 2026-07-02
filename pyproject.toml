@@ -23,7 +23,8 @@ dependencies = [
     "numpy",
     "pandas",
     "KDEpy",
-    "smogn"
+    "smogn",
+    "denseweight"
 ]
 
 [project.urls]
