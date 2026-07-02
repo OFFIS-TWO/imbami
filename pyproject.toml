@@ -22,7 +22,9 @@ classifiers = [
 dependencies = [
     "numpy",
     "pandas",
-    "KDEpy"
+    "KDEpy",
+    "smogn",
+    "denseweight"
 ]
 
 [project.urls]
