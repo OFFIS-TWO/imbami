@@ -2,7 +2,7 @@ from .mitigation import cSMOGN, crbSMOGN, WERCS, SMOGN, WSMOTER, apply_crbsmogn,
 from .relevance import DensityRatioRelevance, DensityDistanceRelevance, HistogramBasedRelevance, DenseWeight
 from .relevance import InterpolationWithControlPoints, LabelDistributionSmoothing, KernelDensityRelevance, relevance_function_factory, RELEVANCE_FUNCTIONS
 from .quantification import mean_imbalance_ratio, imbalanced_sample_percentage
-from .metrics import binned_loss, mean_error, crps_normal_dist, logarithmic_score_normal_dist
+from .metrics import binned_loss, mean_error, crps_normal_dist, logarithmic_score_normal_dist, calculate_ENCE
 
 __all__ = ["cSMOGN",
             "apply_csmogn",
@@ -35,5 +35,6 @@ __all__ = ["cSMOGN",
             "binned_loss",
             "mean_error",
             "crps_normal_dist",
-            "logarithmic_score_normal_dist"
+            "logarithmic_score_normal_dist",
+            "calculate_ENCE"
 ]
