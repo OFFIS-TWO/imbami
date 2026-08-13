@@ -209,7 +209,6 @@ class EmpiricalDomainRelevanceFunctionBase(RelevanceFunctionBase, ABC):
             case _:
                 raise ValueError(f"domain_density_mode has to be either 'fit_kde' or 'provide_pdf'.")
         
-        
         self.is_fitted = True
 
 

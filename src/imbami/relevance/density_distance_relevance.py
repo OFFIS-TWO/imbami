@@ -29,6 +29,10 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
             - domain_density_mode: Method for domain density estimation ('fit_kde' or 'provide_pdf').
             - centered: If True, relevance scores are centered around 0.5 (values < 0.5 are common,
                      values > 0.5 are rare). If False, scores are linearly normalized between 0 and 1.
+
+        Note:
+            Global centering and normalization to [0,1] of relevance only works if emp_density_mode is 'fit_kde'.
+            With 'provide_pdf' centering and normalization is done for each .eval() call individually.
         """
         super().__init__(emp_density_mode = emp_density_mode,
                          domain_density_mode= domain_density_mode)
@@ -84,8 +88,17 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
                           domain_kernel_type= domain_kernel_type,
                           emp_pdf= emp_pdf,
                           domain_pdf= domain_pdf,
-                          grid_points=grid_points)  
+                          grid_points=grid_points)
         super().fit()
+        # calibrate normalization
+        if self.emp_density_mode == 'fit_kde':
+            min_support = self.emp_grid_x.min()
+            max_support = self.emp_grid_x.max()
+            range_support = max_support - min_support
+            extended_value = np.linspace(min_support - 0.1*range_support, max_support + 0.1*range_support, 1001) # get evenly spaced points between the extended ends of the target distribution
+            lamb = self._get_distance(extended_value) 
+            self.min_dist = np.min(lamb)
+            self.max_dist = np.max(lamb)
 
     def eval(self, y: np.ndarray) -> np.ndarray:
         """
@@ -107,8 +120,9 @@ class DensityDistanceRelevance(EmpiricalDomainRelevanceFunctionBase):
         if not self.is_fitted:
             raise RuntimeError("eval() can not be called before fit().")
         lamb = self._get_distance(y)
-        self.min_dist = np.min(lamb)
-        self.max_dist = np.max(lamb)
+        if self.emp_density_mode == 'provide_pdf':
+            self.min_dist = np.min(lamb)
+            self.max_dist = np.max(lamb)
         if self.centered:
             relevance = self._prob_dist_to_centered_relevance(lamb)
         else:

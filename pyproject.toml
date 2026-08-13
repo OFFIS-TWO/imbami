@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "imbami"
-version = "0.2.0"
+version = "0.2.1"
 description = "A python package for the mitigation of data imbalance. It includes implementation of density-distance relevance, density-ratio relevance, cSMOGN and crbSMOGN."
 readme = "README.md"
 requires-python = ">=3.12"

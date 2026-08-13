@@ -51,7 +51,7 @@ def get_kernel(data: np.ndarray,
                     bandwidth = (4*data.std(ddof=1)**5 / 3 / len(data))**(1/5)
                 case _:
                     raise ValueError(f"Unsupported bw_type: {bw_type}")
-        if isinstance(bw_factor, float):   
+        if isinstance(bw_factor, float | int):   
             bandwidth = bandwidth * bw_factor
         
 
