@@ -3,7 +3,7 @@ import numpy as np
 from typing import Callable
 from typing import Literal
 
-from .imbalance import imbalance_ratio, get_density_ratio_lambda
+from .imbalance import sample_imbalance_ratio, sample_density_ratio
 
 
 def imbalanced_sample_percentage(
@@ -28,7 +28,7 @@ def imbalanced_sample_percentage(
 
 
     """
-    Calculate percentage of imbalanced samples in a dataset.
+    Calculate percentage of imbalanced samples in a dataset (ISP).
 
     Computes the percentage of samples that are considered imbalanced based on
     either a direct density ratio threshold or an imbalance ratio threshold.
@@ -80,47 +80,55 @@ def imbalanced_sample_percentage(
     When domain_bw_type is 'uniform', domain_data is not required.
     """
 
-    if not isinstance(data, pd.Series):
-        raise TypeError("The argument 'data' is not of type pd.Series.")
     if ir_bound is None and lower_bound is None and upper_bound is None:
         raise ValueError("At least one of ir_bound, lower_bound, or upper_bound must be provided.")
     if ir_bound is not None and (lower_bound is not None or upper_bound is not None):
         raise ValueError("lower_bound and upper_bound must be None if ir_bound is defined.")
-    if domain_density_mode== 'fit_kde':
-        if domain_data is None and domain_bw_type == 'uniform':
-            domain_data = data
 
-    if isinstance(domain_data, pd.Series):
-        domain_data = domain_data.to_numpy()
 
-    lamb = get_density_ratio_lambda(emp_density_mode=emp_density_mode,
-                                domain_density_mode= domain_density_mode,
-                                data= data.to_numpy(), 
-                                emp_bw_type = emp_bw_type, 
-                                emp_bw_factor= emp_bw_factor,
-                                emp_kernel_type = emp_kernel_type,
-                                domain_data = domain_data, 
-                                domain_bw_type = domain_bw_type, 
-                                domain_bw_factor = domain_bw_factor,
-                                domain_kernel_type= domain_kernel_type,
-                                emp_pdf= emp_pdf,
-                                domain_pdf= domain_pdf,
-                                grid_points=grid_points)
-    lamb = pd.Series(lamb, index= data.index)
     if ir_bound is None:
+        # Eq. 6/7/8: thresholds are defined on the raw density ratio Lambda.
+        lamb = sample_density_ratio(
+            data=data,
+            emp_density_mode=emp_density_mode,
+            domain_density_mode=domain_density_mode,
+            emp_bw_type=emp_bw_type,
+            emp_bw_factor=emp_bw_factor,
+            emp_kernel_type=emp_kernel_type,
+            emp_pdf=emp_pdf,
+            domain_data=domain_data,
+            domain_bw_type=domain_bw_type,
+            domain_bw_factor=domain_bw_factor,
+            domain_kernel_type=domain_kernel_type,
+            domain_pdf=domain_pdf,
+            grid_points=grid_points)
+ 
         isp_l = 0.0
         isp_u = 0.0
         if lower_bound is not None:
             isp_l = (lamb < lower_bound).sum() / len(lamb) * 100
         if upper_bound is not None:
-            # Perform actions for when t_upper is provided
             isp_u = (lamb > upper_bound).sum() / len(lamb) * 100
         isp = isp_l + isp_u
-    
+ 
     else:
-        ir = imbalance_ratio(lamb)
-        isp = (ir > ir_bound).sum() / len(ir) *100
-
+        # Eq. 10: threshold is defined on the imbalance ratio IR.
+        ir = sample_imbalance_ratio(
+            data=data,
+            emp_density_mode=emp_density_mode,
+            domain_density_mode=domain_density_mode,
+            emp_bw_type=emp_bw_type,
+            emp_bw_factor=emp_bw_factor,
+            emp_kernel_type=emp_kernel_type,
+            emp_pdf=emp_pdf,
+            domain_data=domain_data,
+            domain_bw_type=domain_bw_type,
+            domain_bw_factor=domain_bw_factor,
+            domain_kernel_type=domain_kernel_type,
+            domain_pdf=domain_pdf,
+            grid_points=grid_points)
+        isp = (ir > ir_bound).sum() / len(ir) * 100
+ 
     return isp
 
 
@@ -139,7 +147,7 @@ def mean_imbalance_ratio(
         domain_pdf: None | Callable = None,
         grid_points: int = 4096,) -> float:
     """
-    Calculate mean imbalance ratio (MIR) for a dataset.
+    Calculate mean imbalance ratio (mIR) for a dataset.
 
     Computes the average imbalance ratio across all samples in the dataset,
     where imbalance ratio is defined as exp(|log(density_ratio)|).
@@ -189,31 +197,24 @@ def mean_imbalance_ratio(
     distribution will be used for the domain density.
     """
 
-    if not isinstance(data, pd.Series):
-        raise TypeError("The argument 'data' is not of type pd.Series.")
-    if domain_density_mode== 'fit_kde':
-        if domain_data is None and domain_bw_type == 'uniform':
-            domain_data = data
-    if isinstance(domain_data, pd.Series):
-        domain_data = domain_data.to_numpy()
+    ir = sample_imbalance_ratio(
+        data=data,
+        emp_density_mode=emp_density_mode,
+        domain_density_mode=domain_density_mode,
+        emp_bw_type=emp_bw_type,
+        emp_bw_factor=emp_bw_factor,
+        emp_kernel_type=emp_kernel_type,
+        emp_pdf=emp_pdf,
+        domain_data=domain_data,
+        domain_bw_type=domain_bw_type,
+        domain_bw_factor=domain_bw_factor,
+        domain_kernel_type=domain_kernel_type,
+        domain_pdf=domain_pdf,
+        grid_points=grid_points)
+ 
+    return float(np.mean(ir))
 
-    lamb = get_density_ratio_lambda(emp_density_mode=emp_density_mode,
-                                domain_density_mode= domain_density_mode,
-                                data= data.to_numpy(), 
-                                emp_bw_type = emp_bw_type, 
-                                emp_bw_factor= emp_bw_factor,
-                                emp_kernel_type = emp_kernel_type,
-                                domain_data = domain_data, 
-                                domain_bw_type = domain_bw_type, 
-                                domain_bw_factor = domain_bw_factor,
-                                domain_kernel_type= domain_kernel_type,
-                                emp_pdf= emp_pdf,
-                                domain_pdf= domain_pdf,
-                                grid_points=grid_points)
-    lamb = pd.Series(lamb, index= data.index)
-    ir = imbalance_ratio(lamb)
-    mir = float(np.mean(ir))
-    return mir
+
 
 
 
