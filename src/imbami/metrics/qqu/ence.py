@@ -70,6 +70,6 @@ def calculate_ENCE(
     bin_centers = np.asarray(bin_centers)
     counts = np.asarray(counts)
 
-    ence = np.mean(np.abs(rmv - rmse) / rmv)
+    ence = float(np.mean(np.abs(rmv - rmse) / rmv))
 
     return rmv, rmse, bin_centers, counts, ence
