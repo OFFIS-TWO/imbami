@@ -173,3 +173,14 @@ def QQU_sum_profile(q: np.ndarray,
     qqu_sum_values = qqu_sum_cum[first_idx][::-1]
 
     return t_values, qqu_sum_values
+
+
+def QQU_median(q: np.ndarray) -> float:
+    """
+    Dataset-wide median of the per-sample QQU contributions,
+    QQU_median = median(q_1, ..., q_N).
+ 
+    Less sensitive than QQU_avg to individual samples with a large
+    discrepancy. Sample weights are not supported for the median.
+    """
+    return float(np.median(q))
