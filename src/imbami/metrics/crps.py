@@ -1,6 +1,50 @@
+from typing import Literal, overload
+
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+
+
+@overload
+def crps_normal_dist(
+    y_true: pd.Series,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    *,
+    return_per_sample: Literal[True],
+) -> pd.Series: ...
+
+
+@overload
+def crps_normal_dist(
+    y_true: np.ndarray,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    *,
+    return_per_sample: Literal[True],
+) -> np.ndarray: ...
+
+
+@overload
+def crps_normal_dist(
+    y_true: np.ndarray | pd.Series,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    return_per_sample: Literal[False] = False,
+) -> float: ...
+
+
+@overload
+def crps_normal_dist(
+    y_true: np.ndarray | pd.Series,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    return_per_sample: bool = False,
+) -> float | np.ndarray | pd.Series: ...
 
 
 def crps_normal_dist(

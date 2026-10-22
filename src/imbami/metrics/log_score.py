@@ -1,6 +1,52 @@
 import numpy as np
 import pandas as pd
 
+from typing import Literal, overload
+
+
+@overload
+def logarithmic_score_normal_dist(
+    y_true: pd.Series,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    *,
+    return_per_sample: Literal[True],
+) -> pd.Series: ...
+
+
+@overload
+def logarithmic_score_normal_dist(
+    y_true: np.ndarray,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    *,
+    return_per_sample: Literal[True],
+) -> np.ndarray: ...
+
+
+@overload
+def logarithmic_score_normal_dist(
+    y_true: np.ndarray | pd.Series,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    return_per_sample: Literal[False] = False,
+) -> float: ...
+
+
+@overload
+def logarithmic_score_normal_dist(
+    y_true: np.ndarray | pd.Series,
+    mu_predicted: np.ndarray | pd.Series,
+    sigma_predicted: np.ndarray | pd.Series,
+    weight: np.ndarray | pd.Series | None = None,
+    return_per_sample: bool = False,
+) -> float | np.ndarray | pd.Series: ...
+
+
+
 
 def logarithmic_score_normal_dist(
     y_true: np.ndarray | pd.Series,
