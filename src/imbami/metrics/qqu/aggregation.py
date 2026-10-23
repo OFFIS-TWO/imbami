@@ -1,11 +1,22 @@
 import numpy as np
 
 
+def _region_mask(q: np.ndarray, g: np.ndarray | None, t: float | None) -> np.ndarray:
+    """Membership mask of the cumulative-threshold region {i : g(y_i) >= t}."""
+    if t is None:
+        return np.ones_like(q, dtype=bool)
+    if g is None:
+        raise ValueError("g must be provided when t is specified.")
+    g = np.asarray(g, dtype=float)
+    if g.shape != q.shape:
+        raise ValueError("g must have the same shape as q.")
+    return g >= t
+
 
 def QQU_avg(q: np.ndarray,
             g: np.ndarray | None = None,
-            t: float| None = None,
-            w: np.ndarray |None = None) -> float:
+            t: float | None = None,
+            w: np.ndarray | None = None) -> float:
     """
     Regional QQU profile at a single threshold t (cumulative-threshold scheme).
 
@@ -27,72 +38,100 @@ def QQU_avg(q: np.ndarray,
     Parameters
     ----------
     q : np.ndarray, shape (N,)
-        Per-sample QQU contributions q_i (either q_i^R or q_i^E; this
-        function is agnostic to which).
+        Per-sample QQU contributions q_i, corrected or not.
     g : np.ndarray, shape (N,), optional
-        Per-sample domain position g(y_i) used to select the region
-        (e.g. a relevance function, or the target value itself).
-        Required only if t is given.
+        Per-sample domain position g(y_i); required only if t is given.
     t : float, optional
-        Threshold defining the region {i : g(y_i) >= t}. If None
-        (default), no restriction is applied, recovering the
-        dataset-wide QQU_avg.
+        Threshold defining the region {i : g(y_i) >= t}.
     w : np.ndarray, shape (N,), optional
-        Per-sample weights w(y_i). If None (default), uniform weighting
-        w_i = 1 is used.
+        Per-sample weights w(y_i); None means uniform weighting.
 
     Returns
     -------
     float
-        QQU_avg(t): the weighted-average QQU over the selected region.
-        NaN if no sample satisfies g(y_i) >= t.
+        QQU_avg(t) over the selected region. NaN if the region is empty.
     """
     if w is None:
         w = np.ones_like(q, dtype=float)
 
-    if t is None:
-        mask = np.ones_like(q, dtype=bool)
-    else:
-        if g is None:
-            raise ValueError("g must be provided when t is specified.")
-        mask = g >= t
-
+    mask = _region_mask(q, g, t)
     denom = np.sum(w * mask)
     if denom == 0:
         return np.nan
     return np.sum(w * q * mask) / denom
 
 
+def aggregate_c_delta(c_delta_i: np.ndarray,
+                      *,
+                      aggregator: str = "mean",
+                      g: np.ndarray | None = None,
+                      t: float | None = None,
+                      w: np.ndarray | None = None) -> float:
+    """
+    Dataset-wide or regional aggregate of the sample-level corrections c_Delta,i.
 
+    This is the aggregation counterpart of QQU_avg for the correction term, so
+    that the corrected regional average can be read either as the weighted
+    average of the corrected scores or as the difference of two aggregates:
 
+        QQU_avg(q - c)_t = QQU_avg(q)_t - aggregate_c_delta(c, t).
+
+    The correction of realized QQU is a constant, so its aggregation is trivial
+    (mean = median = the constant). For expected QQU c_Delta,i varies across
+    samples and the aggregate is what must be subtracted from QQU_avg(t).
+
+    Parameters
+    ----------
+    c_delta_i : np.ndarray, shape (N,)
+        Per-sample reference values, e.g. ``compute_c_delta(...).c_delta_i``.
+    aggregator : {"mean", "median"}, default "mean"
+        Must match the aggregator applied to the QQU scores downstream.
+    g, t : optional
+        Domain position and threshold selecting the region {g(y_i) >= t};
+        t=None uses all samples.
+    w : np.ndarray, shape (N,), optional
+        Sample weights, used for aggregator="mean" only (sample weights are
+        not supported for the median, as in QQU_median).
+
+    Returns
+    -------
+    float
+        Aggregate of c_Delta,i over the region. NaN if the region is empty.
+    """
+    c = np.asarray(c_delta_i, dtype=float)
+    if c.ndim != 1:
+        raise ValueError("c_delta_i must be a 1D array.")
+    if aggregator == "median":
+        mask = _region_mask(c, g, t)
+        if not np.any(mask):
+            return np.nan
+        return float(np.median(c[mask]))
+    if aggregator == "mean":
+        return QQU_avg(c, g=g, t=t, w=w)
+    raise ValueError(f"aggregator must be 'mean' or 'median', got {aggregator!r}")
 
 
 def QQU_avg_profile(q: np.ndarray,
                      g: np.ndarray,
-                     w: np.ndarray|None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                     w: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Regional QQU profile QQU_avg(t), evaluated at every threshold induced by g.
 
-    Vectorized computation of QQU_avg(t) = QQU_sum(t) / sum_i w_i * 1{g(y_i) >= t}
-    (see QQU_avg for the single-threshold definition) across all distinct
-    thresholds occurring in g, via a single sort and cumulative sum.
-    Equivalent to calling QQU_avg(q, g, t, w) for every t in g, but O(N log N)
-    instead of O(N^2).
+    Vectorized computation of QQU_avg(t) across all distinct thresholds
+    occurring in g, via a single sort and cumulative sum. Equivalent to calling
+    QQU_avg(q, g, t, w) for every t in g, but O(N log N) instead of O(N^2).
 
     Also returns, at each threshold, the number of samples contributing to
-    the average -- useful for judging the reliability of QQU_avg(t), since
-    the profile becomes noisier as the contributing sample count shrinks
-    towards the tails of g.
+    the average -- useful for judging the reliability of QQU_avg(t).
 
     Parameters
     ----------
     q : np.ndarray, shape (N,)
-        Per-sample QQU contributions q_i.
+        Per-sample QQU contributions q_i, corrected or not.
     g : np.ndarray, shape (N,)
         Per-sample domain position g(y_i).
     w : np.ndarray, shape (N,), optional
-        Per-sample weights w(y_i). If None (default), uniform weighting
-        w_i = 1 is used.
+        Per-sample weights w(y_i). If None (default), uniform weighting.
 
     Returns
     -------
@@ -126,31 +165,17 @@ def QQU_avg_profile(q: np.ndarray,
     return t_values, qqu_avg_values, n_values
 
 
-
-
 def QQU_sum_profile(q: np.ndarray,
                      g: np.ndarray,
-                     w: np.ndarray | None = None)-> tuple[np.ndarray, np.ndarray]:
+                     w: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Unnormalized regional QQU sum, evaluated at every threshold induced by g.
 
     Vectorized computation of
         QQU_sum(t) = sum_i w_i * q_i * 1{g(y_i) >= t}
-    for every distinct value t occurring in g, via a single sort and
-    cumulative sum. This is the numerator of QQU_avg(t) (see QQU_avg),
-    not itself a reported framework metric -- it is intended as a
-    building block (e.g. for area-based / SERA-style summaries and
-    for efficient plotting over many thresholds at once.
-
-    Parameters
-    ----------
-    q : np.ndarray, shape (N,)
-        Per-sample QQU contributions q_i.
-    g : np.ndarray, shape (N,)
-        Per-sample domain position g(y_i).
-    w : np.ndarray, shape (N,), optional
-        Per-sample weights w(y_i). If None (default), uniform weighting
-        w_i = 1 is used.
+    for every distinct value t occurring in g. This is the numerator of
+    QQU_avg(t), not itself a reported framework metric -- a building block for
+    area-based / SERA-style summaries and for efficient plotting.
 
     Returns
     -------
@@ -179,7 +204,7 @@ def QQU_median(q: np.ndarray) -> float:
     """
     Dataset-wide median of the per-sample QQU contributions,
     QQU_median = median(q_1, ..., q_N).
- 
+
     Less sensitive than QQU_avg to individual samples with a large
     discrepancy. Sample weights are not supported for the median.
     """
